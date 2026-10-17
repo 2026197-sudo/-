@@ -1,0 +1,106 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex, nofollow">
+<title>실적 입력 · 계명문화대학교 AI 사업단</title>
+<link rel="icon" href="img/logo.png">
+<link rel="stylesheet" href="css/style.css">
+<script>try{var t=localStorage.getItem('kmcuKpiTheme');if(t)document.documentElement.setAttribute('data-theme',t);}catch(e){}</script>
+</head>
+<body>
+<header>
+  <div class="brand-line"></div>
+  <div class="topbar">
+    <div class="wrap">
+      <a class="brand" href="./">
+        <img src="img/logo.png" alt="계명문화대학교 KEIMYUNG COLLEGE UNIVERSITY">
+        <span class="brand-sep" aria-hidden="true"></span>
+        <span class="brand-text"><span class="unit">AI 사업단 · 기획팀 / IR센터</span><span class="sys">성과관리 시스템</span></span>
+      </a>
+      <div class="tools">
+        <span class="clock"><svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg><time id="clock"></time></span>
+        <button type="button" id="themeToggle" class="btn-theme" aria-pressed="false">
+          <svg class="icon-sun" aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg>
+          <svg class="icon-moon" aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M20 14.5A8 8 0 1 1 9.5 4a6.5 6.5 0 0 0 10.5 10.5z"/></svg>
+          <span class="theme-label">다크 모드</span>
+        </button>
+      </div>
+    </div>
+  </div>
+  <nav class="nav" aria-label="주 메뉴">
+    <div class="wrap">
+      <a href="./">대시보드</a>
+      <a href="admin.html" aria-current="page">실적 입력</a>
+    </div>
+  </nav>
+</header>
+
+<main class="wrap">
+  <section class="sec-head" style="margin:0">
+    <div>
+      <h2 style="font-family:var(--font-title);font-size:28px">실적 입력</h2>
+      <div class="desc">저장하면 접속한 모든 화면에 1분 안에 반영됩니다. 저장할 때마다 이전 자료가 아래 <b>변경 이력</b>에 자동 보관되어 언제든 되돌릴 수 있습니다.</div>
+    </div>
+  </section>
+
+  <div id="msg" role="status" aria-live="polite"></div>
+
+  <div class="banner" style="background:var(--note-bg);color:var(--note-ink)">이 페이지는 <b>링크를 아는 누구나</b> 수정할 수 있습니다. 입력자 이름을 꼭 적고, 저장 전 수치를 한 번 더 확인해 주세요.</div>
+
+
+  <form id="editor">
+    <div class="card panel">
+      <h2>기본 정보</h2>
+      <div class="form-grid" style="grid-template-columns:repeat(auto-fit,minmax(240px,1fr))">
+        <label class="field">화면 제목<input id="m-title" type="text"></label>
+        <label class="field">배지 문구<input id="m-badge" type="text"></label>
+        <label class="field">실적 자료 설명<input id="m-dataBasis" type="text"></label>
+        <label class="field">실적 기준일 (경과율 계산)<input id="m-asOfDate" type="date"></label>
+        <label class="field">입력자 (필수)<input id="m-updatedBy" type="text" placeholder="예: 기획팀 홍길동" required maxlength="40"></label>
+      </div>
+    </div>
+    <div class="card table-card" style="margin-top:24px">
+      <div class="table-scroll">
+        <table>
+          <caption>세부지표 실적</caption>
+          <thead><tr>
+            <th scope="col">세부지표</th><th scope="col" class="r">'26 목표</th><th scope="col">현재값</th>
+            <th scope="col">상태</th><th scope="col">비고</th><th scope="col">관리부서</th>
+          </tr></thead>
+          <tbody id="rows"></tbody>
+        </table>
+      </div>
+      <p class="foot-note">상태: <b>실적</b>은 진척률을 계산합니다. <b>측정 전</b>은 학년도 말 조사처럼 아직 측정하지 않은 지표입니다. <b>미입력</b>은 지수 계산에서 0으로 처리됩니다.</p>
+    </div>
+    <div class="actions" style="margin-top:20px">
+      <button type="submit" class="btn btn-primary">저장하기</button>
+      <a class="btn" href="./">대시보드 보기</a>
+      <button type="button" id="download" class="btn">현재 자료 내려받기 (JSON)</button>
+    </div>
+  </form>
+
+  <section class="card panel" aria-labelledby="histTitle">
+    <div class="sec-head" style="margin:0">
+      <div>
+        <h2 id="histTitle">변경 이력</h2>
+        <div class="desc" style="margin-top:2px">저장·되돌리기 직전의 자료가 최근 100개까지 보관됩니다. 잘못 저장했을 때 원하는 시점으로 되돌리세요.</div>
+      </div>
+      <button type="button" id="histReload" class="btn btn-sm">새로고침</button>
+    </div>
+    <div id="history"><p class="dim">불러오는 중…</p></div>
+  </section>
+</main>
+
+<footer>
+  <div class="wrap">
+    <span>계명문화대학교 AI 사업단 · 기획팀 / IR센터</span>
+    <span id="updated"></span>
+  </div>
+</footer>
+
+<script src="js/common.js"></script>
+<script src="js/admin.js"></script>
+</body>
+</html>
