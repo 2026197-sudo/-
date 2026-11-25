@@ -147,7 +147,7 @@
       '<div class="desc">관리부서별로 담당 지표의 진척률을 모았습니다. 진척률 60% 미만(주의·부진)이거나 ' + esc(asOf) + ' 기준 기간 경과율(' + pct(elPct) + ')보다 낮은 지표가 있는 부서를 먼저 보여 줍니다.</div></div></div>';
     html += '<div class="dept-summary" role="note">';
     if (weak.length) {
-      html += '<b>실적이 아쉬운 부서</b> ' + weak.map(function (g) {
+      html += '<b>실적 확인필요 부서</b> ' + weak.map(function (g) {
         var parts = [];
         if (g.red) parts.push('부진 ' + g.red);
         if (g.yellow) parts.push('주의 ' + g.yellow);
@@ -155,7 +155,7 @@
         return '<a href="#dept-' + depts.indexOf(g) + '" class="dept-chip dept-chip-' + g.level + '"><span class="mark mark-' + g.level + '"></span>' + esc(g.dept) + ' <span class="dim">(' + parts.join(', ') + ')</span></a>';
       }).join('');
     } else {
-      html += '<b>실적이 아쉬운 부서가 없습니다.</b> 모든 부서의 측정 지표가 진척률 60% 이상이고 기간 경과율을 넘었습니다.';
+      html += '<b>실적 확인이 필요한 부서가 없습니다.</b> 모든 부서의 측정 지표가 진척률 60% 이상이고 기간 경과율을 넘었습니다.';
     }
     if (need.length) html += '<span class="dept-need">입력 필요: ' + need.map(function (g) { return esc(g.dept); }).join(', ') + '</span>';
     html += '</div><div class="dept-grid">';
