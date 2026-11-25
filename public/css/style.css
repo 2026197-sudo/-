@@ -359,3 +359,11 @@ textarea.cell-input { resize: vertical; line-height: 1.5; font-family: inherit; 
 .mark-behind { width: 11px; height: 10px; background: var(--st-yellow); clip-path: polygon(0 0, 100% 0, 50% 100%); }
 .dept-card.dept-behind { border-top-color: var(--st-yellow); }
 .dept-gap { display: block; font-size: 11px; color: var(--subtle); }
+
+/* UI 정리: 상단 경고 줄, 표 묶음 줄, 보고서 메타 */
+.hero-alert { display: inline-flex; align-items: center; gap: 8px; width: fit-content; max-width: 100%; margin-top: 4px; padding: 8px 14px; border-radius: 8px; background: #FFFFFF; color: #2C2F36; font-size: 14px; font-weight: 700; text-decoration: none; }
+.hero-alert:hover { background: #FFF6E5; }
+tr.group-row td { display: table-cell; }
+.grp-name { margin-right: 16px; }
+.grp-meta { margin-right: 14px; font-weight: 600; color: var(--muted); }
+.rp-meta { display: flex; flex-wrap: wrap; gap: 2px 14px; }

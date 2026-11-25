@@ -26,8 +26,8 @@
   }
 
   /* 상태
-     actual  : 실적 확정(또는 집계 중) 값 → 진척률 계산
-     pending : 측정 전(학년도 말 조사 등) → 진척률 미산출, 값은 지수 계산에 포함(엑셀과 동일)
+     actual  : 실적 확정(또는 집계 중) 값 → 달성률 계산
+     pending : 측정 전(학년도 말 조사 등) → 달성률 미산출, 값은 지수 계산에 포함(엑셀과 동일)
      missing : 미입력 → 지수 계산에 0으로 포함 */
   function itemValueForIndex(it) {
     if (it.status === 'missing') return 0;
@@ -87,11 +87,15 @@
     });
     var n = indices.length || 1;
     var avg = function (key) { return indices.reduce(function (s, i) { return s + (i[key] || 0); }, 0) / n; };
-    var overallProg = avg('prog');
+    // 평균 달성률: 초과 달성한 지수가 부진한 지수를 가리지 않도록 지수별 100%까지만 반영
+    var overallProg = indices.reduce(function (s, i) { return s + Math.min(i.prog || 0, 100); }, 0) / n;
+    var lowest = indices.slice().sort(function (a, b) { return (a.prog || 0) - (b.prog || 0); })[0] || null;
     return {
       indices: indices,
       overall: {
         prog: overallProg,
+        progRaw: avg('prog'),
+        lowest: lowest,
         cur: avg('cur'),
         tgt: avg('tgt'),
         band: band(overallProg, th),
@@ -213,6 +217,12 @@
         if (f && /^반올림 기준 통일/.test(f.item || '') && f.detail) f.detail = f.detail.replace(/\s*·\s*사회적책무 달성도 120\.1\/120\.2\s*/, '');
       });
     }
+    // 용어 통일: 직접 입력한 유의사항에 남은 '진척률'을 '달성률'로
+    d.notes.forEach(function (n) {
+      if (!n) return;
+      if (typeof n.title === 'string') n.title = n.title.replace(/진척률/g, '달성률');
+      if (typeof n.body === 'string') n.body = n.body.replace(/진척률/g, '달성률');
+    });
     d.meta.schema = SCHEMA;
     return d;
   }
@@ -278,12 +288,12 @@
     }
     if (next) {
       var isEnd = next.end === m.periodEnd;
-      list.push({ date: next.end, auto: true,
-        name: next.q + '분기 실적(' + next.m1 + '~' + next.m3 + '월) 기준일' + (isEnd ? ' · 측정기간 종료' : ''),
-        desc: '분기 마감 후 실적 수합 · 실적 입력에서 기준일과 배지 문구를 함께 바꾸세요 · 기획팀' });
+      list.push({ date: next.end, auto: true, owner: '기획팀',
+        name: next.q + '분기 실적(' + next.m1 + '~' + next.m3 + '월) 기준일' + (isEnd ? ', 측정기간 종료' : ''),
+        desc: '분기 실적 수합' });
       if (isEnd) return addPending(list);
     }
-    if (m.periodEnd) list.push({ date: m.periodEnd, auto: true, name: '측정기간 종료 · 연차 실적 집계 마감', desc: '해당연도 3.1 ~ 차년도 2월 말 · 기획팀' });
+    if (m.periodEnd) list.push({ date: m.periodEnd, auto: true, owner: '기획팀', name: '측정기간 종료', desc: '연차 실적 집계 마감' });
     return addPending(list);
 
     function addPending(arr) {
@@ -292,8 +302,7 @@
         if (it.state === 'pending') (byDept[it.dept] = byDept[it.dept] || []).push(it.short || it.name);
       }); });
       Object.keys(byDept).forEach(function (dept) {
-        arr.push({ date: '', auto: true, name: byDept[dept].join(', ') + ' 측정',
-          desc: '측정 후 실적 입력에서 상태를 \'실적\'으로 바꾸면 이 일정은 자동으로 사라집니다 · ' + dept });
+        arr.push({ date: '', auto: true, owner: dept, name: byDept[dept].join(', ') + ' 측정', desc: '측정 결과 입력 대기' });
       });
       return arr;
     }
@@ -347,7 +356,7 @@
         title: (it.short || it.name) + ' 미입력은 0으로 계산됩니다',
         body: '반영비중 ' + it.weight + '%라 값이 입력되면 ' + x.ix.name + josa(x.ix.name, '이', '가') + ' 크게 달라집니다.' + (it.note ? ' (' + it.note + ')' : '')
       });
-      checks.push({ tag: 'missing', label: '미입력', who: it.dept, what: it.name + ' 자료 입력' + (it.note ? ' · ' + it.note : '') });
+      checks.push({ tag: 'missing', label: '미입력', who: it.dept, what: it.name + ' 자료 입력' + (it.note ? ' (' + it.note + ')' : '') });
     });
 
     if (pending.length) {
@@ -362,8 +371,8 @@
         return t;
       });
       notes.push({
-        title: '측정 전 지표 ' + pending.length + '개는 진척률을 계산하지 않습니다',
-        body: lines.join(', ') + '. 입력된 값은 근거 확인 전 값으로 혁신지수 계산에만 포함되며, 점수형 지표의 비율은 진척률이 아닙니다.'
+        title: '측정 전 지표 ' + pending.length + '개는 달성률을 계산하지 않습니다',
+        body: lines.join(', ') + '. 입력된 값은 근거 확인 전 값으로 혁신지수 계산에만 포함되며, 점수형 지표의 비율은 달성률이 아닙니다.'
       });
       var byDept = {};
       pending.forEach(function (x) { (byDept[x.it.dept] = byDept[x.it.dept] || []).push(x.it.short || x.it.name); });
@@ -375,7 +384,7 @@
     red.forEach(function (x) {
       var it = x.it;
       notes.push({
-        title: (it.short || it.name) + ' 진척률이 ' + it.prog.toFixed(1) + '%로 부진합니다',
+        title: (it.short || it.name) + ' 달성률이 ' + it.prog.toFixed(1) + '%로 부진합니다',
         body: (el !== null ? '기간 경과율(' + el.toFixed(1) + '%)보다 ' + (el - it.prog).toFixed(1) + '%p 낮습니다. ' : '') + (it.note ? it.note : '')
       });
       checks.push({ tag: 'red', label: '부진', who: it.dept, what: it.name + ' 실적 점검 및 추진 계획 확인 (현재 ' + it.prog.toFixed(1) + '%)' });
@@ -410,7 +419,7 @@
         else g.good++;
       });
       g.level = g.red ? 'red' : g.yellow ? 'yellow' : g.behind ? 'behind' : g.missing ? 'missing' : 'good';
-      g.label = g.red ? '점검 필요' : g.yellow ? '주의' : g.behind ? '경과율 미달' : g.missing ? '입력 필요' : g.pending && !g.good ? '측정 전' : '양호';
+      g.label = (g.red || g.yellow || g.behind) ? '확인 필요' : g.missing ? '미입력' : g.pending && !g.good ? '측정 전' : '양호';
       var measured = g.items.filter(function (it) { return it.prog !== null; });
       g.minProg = measured.length ? Math.min.apply(null, measured.map(function (it) { return it.prog; })) : Infinity;
       return g;

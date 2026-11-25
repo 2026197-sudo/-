@@ -193,7 +193,7 @@
     // 표 아래 출처
     var note = row + 1;
     var asOf = K.dotDate(m.asOfDate);
-    set('A' + note, '자료: ' + (m.dataBasis || '') + (asOf ? ' · 실적 기준일 ' + asOf : '') + ' · 진척률(달성률) = 달성값 ÷ 목표값, 비율반영 지표값 = Σ(값 ÷ ' + (year + 1) + ' 목표값 × 반영비중) · 내려받은 시각 ' +
+    set('A' + note, '자료: ' + (m.dataBasis || '') + (asOf ? ' · 실적 기준일 ' + asOf : '') + ' · 달성률 = 달성값 ÷ 목표값, 비율반영 지표값 = Σ(값 ÷ ' + (year + 1) + ' 목표값 × 반영비중) · 내려받은 시각 ' +
       K.clockText(new Date()).replace(/:\d\d KST$/, '') + ' · ' + (m.university || '') + ' ' + ((m.unit || '').split('·')[0] || '').trim(),
       { font: { sz: 9, color: '595959' }, align: { h: 'left', wrap: true } });
     merges.push('A' + note + ':J' + note); heights[note] = 30;

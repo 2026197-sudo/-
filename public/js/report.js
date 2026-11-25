@@ -1,4 +1,4 @@
-/* AI 요약보고서: 대시보드 자료를 분석 규칙에 따라 문장으로 자동 작성하고
+/* 요약보고서: 대시보드 자료를 분석 규칙에 따라 문장으로 자동 작성하고
    팝업 표시 · 공유(메일/복사/기기 공유) · PDF 저장 · 출력을 처리합니다.
    외부 AI 서비스나 인터넷 연결 없이 동작합니다. */
 (function () {
@@ -22,9 +22,10 @@
     r.indices.forEach(function (ix) { ix.items.forEach(function (it) { items.push(Object.assign({ index: ix.name }, it)); }); });
     var measured = items.filter(function (i) { return i.state === 'actual' && i.prog !== null; })
       .sort(function (a, b) { return b.prog - a.prog; });
-    var good = measured.filter(function (i) { return i.band.key === 'deep' || i.band.key === 'green'; });
-    var weak = measured.filter(function (i) { return i.band.key === 'red' || i.band.key === 'yellow'; })
-      .sort(function (a, b) { return a.prog - b.prog; });
+    // 집중 관리: 주의·부진이거나 기간 경과율보다 뒤처진 지표 (부서별 현황과 같은 기준)
+    var isWeak = function (i) { return i.band.key === 'red' || i.band.key === 'yellow' || (elapsed > 0 && i.prog < elapsed); };
+    var good = measured.filter(function (i) { return !isWeak(i); });
+    var weak = measured.filter(isWeak).sort(function (a, b) { return a.prog - b.prog; });
     var pending = items.filter(function (i) { return i.state === 'pending'; });
     var missing = items.filter(function (i) { return i.state === 'missing'; });
     var byProg = r.indices.slice().sort(function (a, b) { return b.prog - a.prog; });
@@ -34,7 +35,7 @@
 
   function overallSentences(a) {
     var o = a.r.overall, gap = o.prog - a.elapsed, s = [];
-    s.push(a.m.dataBasis.replace(/\s*\(.*\)$/, '') + ' 기준 4개 혁신지수의 평균 진척률은 ' + pctS(o.prog) + '로 \'' + o.band.label + '\' 수준입니다.');
+    s.push(a.m.dataBasis.replace(/\s*\(.*\)$/, '') + ' 기준 4개 혁신지수의 평균 달성률(지수별 100% 상한)은 ' + pctS(o.prog) + '로 \'' + o.band.label + '\' 수준입니다.');
     if (a.elapsed > 0) {
       s.push(K.dotDate(a.m.asOfDate) + ' 기준 측정기간 경과율(' + pctS(a.elapsed) + ')보다 ' + p1(Math.abs(gap)) + '%p ' +
         (gap >= 0 ? '높아 전반적으로 계획 대비 순항 중입니다.' : '낮아 하반기 집중 관리가 필요합니다.'));
@@ -42,9 +43,10 @@
     s.push('지수별로는 ' + a.top.name + '(' + pctS(a.top.prog) + ')' + josa(a.top.name, '이', '가') + ' 가장 높고, ' + a.bottom.name + '(' + pctS(a.bottom.prog) + ')' + josa(a.bottom.name, '이', '가') + ' 가장 낮습니다.');
     var bm = a.bottom.items.filter(function (i) { return i.state === 'missing'; });
     if (bm.length) s.push(a.bottom.name + josa(a.bottom.name, '은', '는') + ' ' + bm.map(function (i) { return i.name; }).join(', ') + josa(bm[bm.length - 1].name, '이', '가') + ' 미입력(0 처리)되어 실제보다 낮게 계산된 값입니다.');
-    if (a.pending.length || a.missing.length) {
-      s.push('측정 전 ' + a.pending.length + '개, 미입력 ' + a.missing.length + '개 지표가 포함된 잠정치이므로 확정 실적이 반영되면 결과가 달라질 수 있습니다.');
-    }
+    var prov = [];
+    if (a.pending.length) prov.push('측정 전 ' + a.pending.length + '개');
+    if (a.missing.length) prov.push('미입력 ' + a.missing.length + '개');
+    if (prov.length) s.push(prov.join(', ') + ' 지표가 포함된 잠정치이므로 확정 실적이 반영되면 결과가 달라질 수 있습니다.');
     return s;
   }
 
@@ -59,8 +61,8 @@
       a.pending.forEach(function (i) { (depts[i.dept] = depts[i.dept] || []).push(i.short || i.name); });
       Object.keys(depts).forEach(function (d) { list.push({ who: d, what: depts[d].join(', ') + ' 측정 일정 확정 및 입력값 근거 확인' }); });
     }
-    a.weak.filter(function (i) { return i.band.key === 'yellow' && i.prog < a.elapsed; }).forEach(function (i) {
-      list.push({ who: i.dept, what: i.name + ' 기간 경과율 대비 부족분 점검 (현재 ' + pctS(i.prog) + ')' });
+    a.weak.filter(function (i) { return i.band.key !== 'red' && i.prog < a.elapsed; }).forEach(function (i) {
+      list.push({ who: i.dept, what: i.name + ' 기간 경과율 대비 부족분 점검 (현재 ' + pctS(i.prog) + ', 경과율 ' + pctS(a.elapsed) + ')' });
     });
     return list.slice(0, 6);
   }
@@ -75,19 +77,19 @@
     var markOf = function (i) { return '<span class="mark mark-' + (i.state === 'actual' ? i.band.key : i.state) + '"></span>'; };
 
     var h = '';
-    h += '<header class="rp-head"><img src="img/logo.png" alt="계명문화대학교"><div><div class="rp-kicker">혁신지원사업단 · 기획팀 / IR센터 · 자동 요약보고</div>' +
+    h += '<header class="rp-head"><img src="img/logo.png" alt="계명문화대학교"><div><div class="rp-kicker">자동 요약보고서</div>' +
       '<h2 id="reportTitle">' + esc(m.title) + '</h2>' +
-      '<div class="rp-meta">작성 ' + esc(written) + ' · 실적 ' + esc(m.dataBasis) + ' · 기준 ' + esc(m.definitionBasis) + '</div></div></header>';
+      '<div class="rp-meta"><span>작성 ' + esc(written) + '</span><span>자료 ' + esc(m.dataBasis) + '</span><span>기준 ' + esc(m.definitionBasis) + '</span></div></div></header>';
 
     h += '<div class="rp-kpis">' +
-      '<div><span>평균 진척률</span><b>' + pctS(o.prog) + '</b><em>' + markOf({ state: 'actual', band: o.band }) + esc(o.band.label) + '</em></div>' +
+      '<div><span>평균 달성률 (지수별 100% 상한)</span><b>' + pctS(o.prog) + '</b><em>' + markOf({ state: 'actual', band: o.band }) + esc(o.band.label) + '</em></div>' +
       '<div><span>지수 평균 (현재 / 목표)</span><b>' + p1(o.cur) + '</b><em>목표 ' + p1(o.tgt) + '</em></div>' +
-      '<div><span>기간 경과율 (' + esc(K.dotDate(m.asOfDate)) + ')</span><b>' + pctS(a.elapsed) + '</b><em>' + (o.prog >= a.elapsed ? '진척률이 앞섬' : '진척률이 뒤처짐') + '</em></div>' +
-      '<div><span>1차년도 평균달성도</span><b>' + pctS(m.y1AvgRate) + '</b><em>\'25 확정</em></div></div>';
+      '<div><span>기간 경과율 (' + esc(K.dotDate(m.asOfDate)) + ')</span><b>' + pctS(a.elapsed) + '</b><em>' + (o.prog >= a.elapsed ? '달성률이 앞섬' : '달성률이 뒤처짐') + '</em></div>' +
+      '<div><span>2025 평균 달성률</span><b>' + pctS(m.y1AvgRate) + '</b><em>확정</em></div></div>';
 
     h += '<section><h3>1. 종합 판단</h3><p>' + ov.map(esc).join(' ') + '</p></section>';
 
-    h += '<section><h3>2. 혁신지수별 현황</h3><table class="rp-table"><thead><tr><th scope="col">혁신지수</th><th scope="col">진척률</th><th scope="col" class="r">현재 / 목표</th><th scope="col">상태</th><th scope="col">비고</th></tr></thead><tbody>';
+    h += '<section><h3>2. 혁신지수별 현황</h3><table class="rp-table"><thead><tr><th scope="col">혁신지수</th><th scope="col">달성률</th><th scope="col" class="r">현재 / 목표</th><th scope="col">상태</th><th scope="col">비고</th></tr></thead><tbody>';
     a.r.indices.forEach(function (ix) {
       var notes = ix.items.filter(function (i) { return i.state !== 'actual' || (i.band && i.band.key === 'red'); })
         .map(function (i) { return (i.short || i.name) + ' ' + stateLabel(i); });
@@ -99,18 +101,19 @@
 
     h += '<div class="rp-two"><section><h3>3. 잘 되고 있는 지표</h3>';
     h += a.good.length ? '<ul>' + a.good.map(function (i) {
-      return '<li>' + markOf(i) + '<b>' + esc(i.name) + '</b> ' + pctS(i.prog) + ' <span class="dim">(' + fmt(i.current) + i.unit + ' / 목표 ' + fmt(i.targets.y2) + i.unit + (i.note ? ' · ' + esc(i.note) : '') + ')</span></li>';
+      return '<li>' + markOf(i) + '<b>' + esc(i.name) + '</b> ' + pctS(i.prog) + ' <span class="dim">(' + fmt(i.current) + i.unit + ' / 목표 ' + fmt(i.targets.y2) + i.unit + ')' + (i.note ? ' ' + esc(i.note) : '') + '</span></li>';
     }).join('') + '</ul>' : '<p class="dim">해당 지표가 없습니다.</p>';
     h += '</section><section><h3>4. 집중 관리가 필요한 지표</h3>';
     h += a.weak.length ? '<ul>' + a.weak.map(function (i) {
-      return '<li>' + markOf(i) + '<b>' + esc(i.name) + '</b> ' + pctS(i.prog) + ' <span class="dim">(' + esc(i.dept) + (i.note ? ' · ' + esc(i.note) : '') + ')</span></li>';
+      var lagText = i.band.key !== 'red' && i.band.key !== 'yellow' ? ' 경과율 미달' : ' ' + i.band.label;
+      return '<li>' + markOf(i) + '<b>' + esc(i.name) + '</b> ' + pctS(i.prog) + esc(lagText) + ' <span class="dim">(' + esc(i.dept) + ')' + (i.note ? ' ' + esc(i.note) : '') + '</span></li>';
     }).join('') + '</ul>' : '<p class="dim">해당 지표가 없습니다.</p>';
     h += '</section></div>';
 
     h += '<section><h3>5. 자료 확인이 필요한 지표</h3>';
     var chk = a.missing.concat(a.pending);
     h += chk.length ? '<ul>' + chk.map(function (i) {
-      return '<li>' + markOf(i) + '<b>' + esc(i.name) + '</b> ' + stateLabel(i) + ' <span class="dim">(' + esc(i.dept) + (i.note ? ' · ' + esc(i.note) : '') + ')</span></li>';
+      return '<li>' + markOf(i) + '<b>' + esc(i.name) + '</b> ' + stateLabel(i) + ' <span class="dim">(' + esc(i.dept) + ')' + (i.note ? ' ' + esc(i.note) : '') + '</span></li>';
     }).join('') + '</ul>' : '<p class="dim">모든 지표가 실적으로 입력되어 있습니다.</p>';
     h += '</section>';
 
@@ -123,15 +126,20 @@
     /* 메일·메신저용 텍스트 */
     var t = [];
     t.push(subject);
-    t.push('(작성 ' + written + ' · 실적 ' + m.dataBasis + ')');
+    t.push('작성 ' + written + ', 자료 ' + m.dataBasis);
     t.push('');
-    t.push('■ 종합: 평균 진척률 ' + pctS(o.prog) + '(' + o.band.label + ') · 지수 평균 ' + p1(o.cur) + ' / 목표 ' + p1(o.tgt) + ' · ' + K.dotDate(m.asOfDate) + ' 기준 기간 경과율 ' + pctS(a.elapsed));
+    t.push('■ 종합');
+    t.push('  평균 달성률 ' + pctS(o.prog) + ' (' + o.band.label + ', 지수별 100% 상한)');
+    t.push('  지수 평균 ' + p1(o.cur) + ' / 목표 ' + p1(o.tgt));
+    t.push('  ' + K.dotDate(m.asOfDate) + ' 기준 기간 경과율 ' + pctS(a.elapsed));
     t.push('  ' + ov.slice(1).join(' '));
     t.push('');
-    t.push('■ 지수별 진척률');
+    t.push('■ 지수별 달성률');
     a.r.indices.forEach(function (ix) { t.push('  - ' + ix.name + ' ' + pctS(ix.prog) + ' (' + ix.band.label + ')'); });
     if (a.good.length) { t.push(''); t.push('■ 잘 되고 있는 지표'); a.good.forEach(function (i) { t.push('  - ' + i.name + ' ' + pctS(i.prog)); }); }
-    if (a.weak.length) { t.push(''); t.push('■ 집중 관리 필요'); a.weak.forEach(function (i) { t.push('  - ' + i.name + ' ' + pctS(i.prog) + ' (' + i.band.label + ', ' + i.dept + ')'); }); }
+    if (a.weak.length) { t.push(''); t.push('■ 집중 관리 필요'); a.weak.forEach(function (i) {
+      var lab = i.band.key === 'red' || i.band.key === 'yellow' ? i.band.label : '경과율 미달';
+      t.push('  - ' + i.name + ' ' + pctS(i.prog) + ' (' + lab + ', ' + i.dept + ')'); }); }
     if (chk.length) { t.push(''); t.push('■ 자료 확인 필요'); chk.forEach(function (i) { t.push('  - ' + i.name + ' ' + stateLabel(i) + ' (' + i.dept + ')'); }); }
     if (acts.length) { t.push(''); t.push('■ 다음 조치'); acts.forEach(function (x, n) { t.push('  ' + (n + 1) + '. [' + x.who + '] ' + x.what); }); }
     if (location.protocol !== 'file:') { t.push(''); t.push('대시보드: ' + location.origin + location.pathname.replace(/[^/]*$/, '')); }
