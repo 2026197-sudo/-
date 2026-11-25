@@ -1,17 +1,24 @@
-/* 실적 입력 화면 (Netlify 배포용 · PIN 없음) */
+/* 실적 입력 화면: 담당자는 본인 부서 지표만, 관리자는 전체를 고칩니다. */
 (function () {
   'use strict';
   var K = window.KPI, esc = K.esc;
   var data = null;
   var STATES = [['actual', '실적'], ['pending', '측정 전'], ['missing', '미입력']];
-  var WHO_KEY = 'kmcuKpiEditor';
   var DEPT_KEY = 'kmcuKpiDept';
   var orig = null; // 불러온 시점의 자료 (내 변경분 계산용)
+  var me = null;   // 로그인한 사람 { id, name, dept, admin }
+  function mine(dept) { return me.admin || splitDepts(dept).indexOf(me.dept) >= 0; }
 
   /* ---------- 관리부서 필터 ---------- */
   function splitDepts(s) { return String(s || '').split(/\s*[,·\/]\s*/).map(function (x) { return x.trim(); }).filter(Boolean); }
   function fillDeptFilter() {
     var sel = document.getElementById('deptFilter'), set = {};
+    if (!me.admin) {
+      sel.innerHTML = '<option value="' + esc(me.dept) + '">' + esc(me.dept) + '</option>';
+      sel.disabled = true;
+      applyDeptFilter();
+      return;
+    }
     data.indices.forEach(function (ix) { ix.items.forEach(function (it) { splitDepts(it.dept).forEach(function (d) { set[d] = true; }); }); });
     var saved = sel.value;
     if (!saved) { try { saved = localStorage.getItem(DEPT_KEY) || ''; } catch (e) {} }
@@ -34,7 +41,9 @@
       if (ok) { shown++; groupVisible = true; }
     });
     flush();
-    document.getElementById('deptHint').textContent = dept
+    document.getElementById('deptHint').textContent = !me.admin
+      ? me.dept + ' 관리 지표 ' + shown + '개입니다. 다른 부서 지표는 해당 부서 담당자가 입력합니다.'
+      : dept
       ? dept + ' 관리 지표 ' + shown + '개만 보입니다 (전체 ' + total + '개). 저장해도 다른 부서 지표 값은 그대로 유지됩니다.'
       : '본인 팀을 고르면 그 팀이 관리하는 지표만 보입니다.';
   }
@@ -163,14 +172,14 @@
     ['title', 'badge', 'dataBasis', 'asOfDate'].forEach(function (k) {
       document.getElementById('m-' + k).value = m[k] || '';
     });
-    var who = '';
-    try { who = localStorage.getItem(WHO_KEY) || ''; } catch (e) {}
-    document.getElementById('m-updatedBy').value = who;
+    document.getElementById('m-updatedBy').value = me.admin ? '관리자' : me.name + ' (' + me.dept + ')';
+    ['title', 'badge', 'dataBasis', 'asOfDate'].forEach(function (k) { document.getElementById('m-' + k).disabled = !me.admin; });
 
     var html = '';
     data.indices.forEach(function (ix, i) {
       html += '<tr class="group-row"><td colspan="6">' + esc(ix.name) + '</td></tr>';
       ix.items.forEach(function (it, j) {
+        if (!mine(it.dept)) return; // 다른 부서 지표는 담당자 화면에 그리지 않음
         var id = 'i' + i + '_' + j;
         html += '<tr data-dept="' + esc(it.dept) + '"><th scope="row" style="background:none;font-weight:500;color:var(--ink);white-space:normal"><label for="' + id + '-cur">' + esc(it.name) + ' <span class="dim small">(' + esc(it.unit) + ')</span></label></th>' +
           '<td class="r dim">' + K.fmt(it.targets.y2) + '</td>' +
@@ -178,7 +187,7 @@
           '<td><select class="cell-select" id="' + id + '-st" aria-label="' + esc(it.name) + ' 상태">' +
           STATES.map(function (s) { return '<option value="' + s[0] + '"' + (it.status === s[0] ? ' selected' : '') + '>' + s[1] + '</option>'; }).join('') + '</select></td>' +
           '<td><input class="cell-input wide" id="' + id + '-note" type="text" aria-label="' + esc(it.name) + ' 비고" value="' + esc(it.note) + '"></td>' +
-          '<td><input class="cell-input wide" id="' + id + '-dept" type="text" aria-label="' + esc(it.name) + ' 관리부서" value="' + esc(it.dept) + '"></td></tr>';
+          '<td><input class="cell-input wide" id="' + id + '-dept" type="text" aria-label="' + esc(it.name) + ' 관리부서" value="' + esc(it.dept) + '"' + (me.admin ? '' : ' readonly') + '></td></tr>';
       });
     });
     document.getElementById('rows').innerHTML = html;
@@ -195,10 +204,10 @@
       next.meta[k] = document.getElementById('m-' + k).value.trim();
     });
     var bad = [];
-    if (!next.meta.updatedBy) bad.push('입력자');
     next.indices.forEach(function (ix, i) {
       ix.items.forEach(function (it, j) {
         var id = 'i' + i + '_' + j;
+        if (!document.getElementById(id + '-cur')) return; // 화면에 없는(다른 부서) 지표는 그대로
         var raw = document.getElementById(id + '-cur').value.trim();
         var v = raw === '' ? null : Number(raw);
         if (raw !== '' && !isFinite(v)) bad.push(it.name);
@@ -257,15 +266,10 @@
   }
   function isEmptyPatch(p) { return !Object.keys(p.meta).length && !Object.keys(p.items).length && !p.lists.length; }
 
-  function post(url, body) {
-    return fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })
-      .then(function (r) {
-        return r.json().catch(function () { return {}; }).then(function (b) { return { ok: r.ok, status: r.status, body: b }; });
-      });
-  }
+  function post(url, body) { return KPIAuth.post(url, body); }
 
   function load() {
-    return fetch('api/data', { cache: 'no-store' }).then(function (r) {
+    return KPIAuth.api('api/data').then(function (r) {
       if (!r.ok) throw new Error();
       return r.json();
     }).then(function (d) { data = K.normalize(d); orig = JSON.parse(JSON.stringify(data)); fill(); });
@@ -273,7 +277,8 @@
 
   function loadHistory() {
     var box = document.getElementById('history');
-    return fetch('api/history', { cache: 'no-store' }).then(function (r) {
+    if (!me.admin) return Promise.resolve();
+    return KPIAuth.api('api/history').then(function (r) {
       if (!r.ok) throw new Error();
       return r.json();
     }).then(function (res) {
@@ -295,15 +300,25 @@
     if (!data) return;
     var c = collect();
     if (c.bad.length) { msg('확인이 필요한 값: ' + c.bad.join(', ')); return; }
-    try { localStorage.setItem(WHO_KEY, c.next.meta.updatedBy); } catch (err) {}
     var btn = e.submitter || document.querySelector('#editor button[type=submit]');
     btn.disabled = true;
+    if (!me.admin) {
+      // 담당자: 서버가 본인 부서 지표의 현재값·상태·비고만 골라 최신 자료에 반영
+      post('api/data', c.next).then(function (res) {
+        if (!res.ok) { msg('저장하지 못했습니다: ' + (res.body.error || res.status)); return; }
+        var ch = res.body.changed || [];
+        msg(ch.length ? '저장했습니다 (' + ch.length + '개 지표: ' + ch.join(', ') + ').' : '바뀐 값이 없어 저장하지 않았습니다.', true);
+        return load();
+      }).catch(function () { msg('저장소에 연결할 수 없습니다. 잠시 후 다시 시도해 주세요.'); })
+        .then(function () { btn.disabled = false; });
+      return;
+    }
     var patch = diff(orig, c.next), who = c.next.meta.updatedBy;
     var send = function (doc, base) { return post('api/data', Object.assign({}, doc, { _base: base || '' })); };
     send(c.next, orig.meta.updatedAt).then(function (res) {
       if (res.status !== 409) return { res: res, merged: false };
       // 다른 담당자가 먼저 저장함 → 최신 자료를 받아 내 변경분만 합쳐 다시 저장
-      return fetch('api/data', { cache: 'no-store' }).then(function (r) { return r.json(); }).then(function (latest) {
+      return KPIAuth.api('api/data').then(function (r) { return r.json(); }).then(function (latest) {
         latest = K.normalize(latest);
         if (isEmptyPatch(patch)) return { res: { ok: true, body: {} }, merged: true, nothing: true };
         return send(applyPatch(latest, patch, who), latest.meta.updatedAt).then(function (r2) { return { res: r2, merged: true }; });
@@ -376,9 +391,58 @@
     setTimeout(function () { URL.revokeObjectURL(a.href); }, 1000);
   });
 
+  /* 가입자 관리 (관리자) */
+  var userDepts = [];
+  function loadUsers() {
+    var box = document.getElementById('users');
+    return KPIAuth.api('api/users').then(function (r) { return r.json(); }).then(function (res) {
+      var list = res.users || [];
+      userDepts = res.departments || [];
+      if (!list.length) { box.innerHTML = '<p class="dim">아직 가입한 담당자가 없습니다.</p>'; return; }
+      box.innerHTML = '<div class="table-scroll"><table class="le-table users-table"><thead><tr><th scope="col">인사번호</th><th scope="col">이름</th><th scope="col">부서</th>' +
+        '<th scope="col">가입</th><th scope="col">최근 로그인</th><th scope="col"></th></tr></thead><tbody>' +
+        list.map(function (u, i) {
+          var opts = userDepts.slice();
+          if (opts.indexOf(u.dept) < 0) opts.unshift(u.dept);
+          return '<tr><td>' + esc(u.id) + '</td>' +
+            '<td><input class="cell-input mid" id="u-' + i + '-name" value="' + esc(u.name) + '" aria-label="' + esc(u.id) + ' 이름"></td>' +
+            '<td><select class="cell-select" id="u-' + i + '-dept" aria-label="' + esc(u.id) + ' 부서">' +
+            opts.map(function (d) { return '<option' + (d === u.dept ? ' selected' : '') + '>' + esc(d) + '</option>'; }).join('') + '</select></td>' +
+            '<td class="small dim">' + esc(shortTime(u.createdAt)) + '</td><td class="small dim">' + esc(u.lastLogin ? shortTime(u.lastLogin) : '—') + '</td>' +
+            '<td class="users-act"><button type="button" class="btn btn-sm" data-uact="update" data-uid="' + esc(u.id) + '" data-ui="' + i + '">저장</button>' +
+            '<button type="button" class="btn btn-sm" data-uact="delete" data-uid="' + esc(u.id) + '" data-ui="' + i + '">삭제 (PIN 초기화)</button></td></tr>';
+        }).join('') + '</tbody></table></div>';
+    }).catch(function () { box.innerHTML = '<p class="dim">가입자 목록을 불러오지 못했습니다.</p>'; });
+  }
+  document.getElementById('users').addEventListener('click', function (e) {
+    var b = e.target.closest('[data-uact]');
+    if (!b) return;
+    var act = b.getAttribute('data-uact'), id = b.getAttribute('data-uid'), i = b.getAttribute('data-ui');
+    if (act === 'delete' && !window.confirm(id + ' 가입 정보를 삭제할까요?\n삭제하면 이 인사번호로 다시 가입해 PIN을 새로 정할 수 있습니다.')) return;
+    var body = { action: act, id: id };
+    if (act === 'update') {
+      body.name = document.getElementById('u-' + i + '-name').value;
+      body.dept = document.getElementById('u-' + i + '-dept').value;
+    }
+    b.disabled = true;
+    post('api/users', body).then(function (res) {
+      if (!res.ok) { msg('처리하지 못했습니다: ' + (res.body.error || res.status)); b.disabled = false; return; }
+      msg(act === 'delete' ? id + ' 가입 정보를 삭제했습니다.' : id + ' 정보를 고쳤습니다.', true);
+      return loadUsers();
+    }).catch(function () { msg('저장소에 연결할 수 없습니다.'); b.disabled = false; });
+  });
+  document.getElementById('usersReload').addEventListener('click', loadUsers);
+
   K.initTheme();
   document.getElementById('themeToggle').addEventListener('click', K.toggleTheme);
   K.startClock();
-  load().catch(function () { msg('저장소에 연결할 수 없습니다. 잠시 후 새로고침해 주세요.'); });
-  loadHistory();
+  KPIAuth.start(function (user) {
+    me = user;
+    document.getElementById('roleNote').innerHTML = me.admin
+      ? '<b>관리자</b>로 로그인했습니다. 모든 지표와 기본 정보, 대시보드 문구, 가입자를 고칠 수 있습니다.'
+      : '<b>' + esc(me.name) + '</b> (' + esc(me.dept) + ')로 로그인했습니다. <b>' + esc(me.dept) + '</b> 관리 지표의 현재값·상태·비고만 저장됩니다. 다른 항목은 기획팀(IR센터)에 요청해 주세요.';
+    ['metaSec', 'textSec', 'histSec', 'usersSec'].forEach(function (id) { document.getElementById(id).hidden = !me.admin; });
+    load().catch(function () { msg('저장소에 연결할 수 없습니다. 잠시 후 새로고침해 주세요.'); });
+    if (me.admin) { loadHistory(); loadUsers(); }
+  });
 })();

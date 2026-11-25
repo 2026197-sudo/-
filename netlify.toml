@@ -9,7 +9,7 @@
 [functions]
   node_bundler = "esbuild"
 
-# 검색엔진에 노출되지 않도록 설정 (링크를 아는 사람만 접속)
+# 검색엔진에 노출되지 않도록 설정
 [[headers]]
   for = "/*"
   [headers.values]
@@ -27,7 +27,3 @@
   [headers.values]
     Cache-Control = "no-cache"
 
-[[headers]]
-  for = "/data.json"
-  [headers.values]
-    Cache-Control = "no-cache"
