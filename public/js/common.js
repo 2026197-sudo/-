@@ -388,11 +388,43 @@
     return { notes: notes, checks: checks };
   }
 
+  /* 관리부서별 실적: 부진(30% 미만) → 주의(30~60%) → 경과율 미달(기간 경과율보다 낮음) → 입력 필요 → 양호 순 */
+  function deptSummary(r, elapsedRatioValue) {
+    var el = elapsedRatioValue === null || elapsedRatioValue === undefined ? null : elapsedRatioValue * 100;
+    var map = {};
+    r.indices.forEach(function (ix) {
+      ix.items.forEach(function (it) {
+        String(it.dept || '').split(/\s*[,·\/]\s*/).map(function (x) { return x.trim(); }).filter(Boolean).forEach(function (d) {
+          (map[d] = map[d] || { dept: d, items: [], red: 0, yellow: 0, behind: 0, missing: 0, pending: 0, good: 0 }).items.push(it);
+        });
+      });
+    });
+    var list = Object.keys(map).map(function (k) {
+      var g = map[k];
+      g.items.forEach(function (it) {
+        if (it.state === 'missing') g.missing++;
+        else if (it.state === 'pending') g.pending++;
+        else if (it.band && it.band.key === 'red') g.red++;
+        else if (it.band && it.band.key === 'yellow') g.yellow++;
+        else if (el !== null && it.prog !== null && it.prog < el) g.behind++;
+        else g.good++;
+      });
+      g.level = g.red ? 'red' : g.yellow ? 'yellow' : g.behind ? 'behind' : g.missing ? 'missing' : 'good';
+      g.label = g.red ? '점검 필요' : g.yellow ? '주의' : g.behind ? '경과율 미달' : g.missing ? '입력 필요' : g.pending && !g.good ? '측정 전' : '양호';
+      var measured = g.items.filter(function (it) { return it.prog !== null; });
+      g.minProg = measured.length ? Math.min.apply(null, measured.map(function (it) { return it.prog; })) : Infinity;
+      return g;
+    });
+    var order = { red: 0, yellow: 1, behind: 2, missing: 3, good: 4 };
+    list.sort(function (a, b) { return order[a.level] - order[b.level] || a.minProg - b.minProg || a.dept.localeCompare(b.dept, 'ko'); });
+    return list;
+  }
+
   root.KPI = {
     esc: esc, num: num, fmt: fmt, pct: pct, band: band, compute: compute,
     clockText: clockText, dotDate: dotDate, elapsedRatio: elapsedRatio, daysUntil: daysUntil,
     initTheme: initTheme, toggleTheme: toggleTheme, startClock: startClock,
     normalize: normalize, insights: insights, josa: josa,
-    linkDone: linkDone, findItem: findItem, scheduleOf: scheduleOf, quarterOf: quarterOf, SCHEMA: SCHEMA
+    linkDone: linkDone, findItem: findItem, scheduleOf: scheduleOf, quarterOf: quarterOf, SCHEMA: SCHEMA, deptSummary: deptSummary
   };
 })(typeof window !== 'undefined' ? window : globalThis);

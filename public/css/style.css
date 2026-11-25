@@ -337,3 +337,25 @@ textarea.cell-input { resize: vertical; line-height: 1.5; font-family: inherit; 
 .dept-bar { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 12px; padding: 14px 20px; border-bottom: 1px solid var(--divider); background: var(--surface-2); }
 .dept-label { font-size: 14px; font-weight: 700; color: var(--heading); }
 .dept-select { min-width: 200px; min-height: 44px; font-weight: 600; }
+
+/* 부서별 실적 현황 */
+.dept-summary { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 10px; padding: 14px 18px; margin-bottom: 16px; border-radius: 10px; background: var(--surface); border: 1px solid var(--border); border-left: 4px solid #D81E24; font-size: 14px; }
+.dept-summary b { color: var(--heading); margin-right: 4px; }
+.dept-chip { display: inline-flex; align-items: center; gap: 6px; min-height: 36px; padding: 4px 12px; border-radius: 999px; border: 1px solid var(--border); background: var(--surface-2); color: var(--ink); text-decoration: none; font-weight: 600; font-size: 13px; }
+.dept-chip:hover { border-color: var(--chip-ink); }
+.dept-need { font-size: 13px; color: var(--subtle); margin-left: 4px; }
+.dept-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 14px; }
+.dept-card { padding: 16px 18px; border-top: 4px solid var(--st-green); scroll-margin-top: 16px; }
+.dept-card.dept-red { border-top-color: var(--st-red); }
+.dept-card.dept-yellow { border-top-color: var(--st-yellow); }
+.dept-card.dept-missing { border-top-color: var(--none); }
+.dept-head { display: flex; justify-content: space-between; align-items: center; gap: 8px; margin-bottom: 8px; }
+.dept-head h3 { margin: 0; font-size: 15px; color: var(--heading); }
+.dept-status { font-weight: 700; }
+.dept-card ul { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; }
+.dept-card li { display: flex; align-items: center; gap: 8px; padding: 7px 0; border-top: 1px solid var(--divider); font-size: 13px; }
+.dept-item { flex: 1; min-width: 0; }
+.dept-val { font-weight: 700; color: var(--heading); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.mark-behind { width: 11px; height: 10px; background: var(--st-yellow); clip-path: polygon(0 0, 100% 0, 50% 100%); }
+.dept-card.dept-behind { border-top-color: var(--st-yellow); }
+.dept-gap { display: block; font-size: 11px; color: var(--subtle); }

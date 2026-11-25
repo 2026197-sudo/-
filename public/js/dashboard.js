@@ -84,6 +84,7 @@
       '<span class="status"><span class="mark mark-green"></span>양호 ' + th[1] + '~' + th[2] + '%</span>' +
       '<span class="status"><span class="mark mark-yellow"></span>주의 ' + th[0] + '~' + th[1] + '%</span>' +
       '<span class="status"><span class="mark mark-red"></span>부진 ' + th[0] + '% 미만</span>' +
+      '<span class="status"><span class="mark mark-behind"></span>경과율 미달(부서별 현황)</span>' +
       '<span class="status"><span class="mark mark-pending"></span>측정 전</span>' +
       '<span class="status"><span class="mark mark-missing"></span>미입력</span>' +
       '<span class="status"><span class="tick"></span>눈금 = ' + esc(asOf) + ' 기준 기간 경과율(참고)</span></div>';
@@ -136,6 +137,43 @@
       });
     });
     html += '</tbody></table></div><p class="foot-note">* 측정 전 지표(학년도 말 조사·사후검사)는 진척률을 계산하지 않으며, 입력된 값은 근거 확인 전 값으로 혁신지수 계산에만 포함됩니다. 미입력 지표는 0으로 계산됩니다.</p></div></section>';
+
+    /* 부서별 실적 현황 */
+    var depts = K.deptSummary(r, elapsed);
+    var elPct = elapsed === null ? null : elapsed * 100;
+    var weak = depts.filter(function (g) { return g.level === 'red' || g.level === 'yellow' || g.level === 'behind'; });
+    var need = depts.filter(function (g) { return g.level === 'missing'; });
+    html += '<section id="dept"><div class="sec-head"><div><h2>부서별 실적 현황</h2>' +
+      '<div class="desc">관리부서별로 담당 지표의 진척률을 모았습니다. 진척률 60% 미만(주의·부진)이거나 ' + esc(asOf) + ' 기준 기간 경과율(' + pct(elPct) + ')보다 낮은 지표가 있는 부서를 먼저 보여 줍니다.</div></div></div>';
+    html += '<div class="dept-summary" role="note">';
+    if (weak.length) {
+      html += '<b>실적이 아쉬운 부서</b> ' + weak.map(function (g) {
+        var parts = [];
+        if (g.red) parts.push('부진 ' + g.red);
+        if (g.yellow) parts.push('주의 ' + g.yellow);
+        if (g.behind) parts.push('경과율 미달 ' + g.behind);
+        return '<a href="#dept-' + depts.indexOf(g) + '" class="dept-chip dept-chip-' + g.level + '"><span class="mark mark-' + g.level + '"></span>' + esc(g.dept) + ' <span class="dim">(' + parts.join(', ') + ')</span></a>';
+      }).join('');
+    } else {
+      html += '<b>실적이 아쉬운 부서가 없습니다.</b> 모든 부서의 측정 지표가 진척률 60% 이상이고 기간 경과율을 넘었습니다.';
+    }
+    if (need.length) html += '<span class="dept-need">입력 필요: ' + need.map(function (g) { return esc(g.dept); }).join(', ') + '</span>';
+    html += '</div><div class="dept-grid">';
+    depts.forEach(function (g, gi) {
+      html += '<article class="card dept-card dept-' + g.level + '" id="dept-' + gi + '">' +
+        '<div class="dept-head"><h3>' + esc(g.dept) + '</h3><span class="status dept-status">' +
+        (g.level === 'good' ? '<span class="mark mark-green"></span>' : '<span class="mark mark-' + g.level + '"></span>') + esc(g.label) + '</span></div><ul>';
+      g.items.slice().sort(function (a, b) {
+        var pa = a.prog === null ? Infinity : a.prog, pb = b.prog === null ? Infinity : b.prog; return pa - pb;
+      }).forEach(function (it) {
+        var lag = elPct !== null && it.prog !== null && it.prog < elPct && it.prog >= 60;
+        html += '<li><span class="status">' + (lag ? '<span class="mark mark-behind"></span>' : mark(it.state, it.band)) + '</span><span class="dept-item">' + esc(it.short || it.name) +
+          (it.prog !== null && elPct !== null && it.prog < elPct ? ' <span class="dept-gap">경과율보다 ' + (elPct - it.prog).toFixed(1) + '%p 낮음</span>' : '') + '</span>' +
+          '<span class="dept-val">' + (it.prog === null ? esc(statusLabel(it.state)) : pct(it.prog)) + '</span></li>';
+      });
+      html += '</ul></article>';
+    });
+    html += '</div></section>';
 
     /* 유의사항(자동 + 직접 입력) + 일정 */
     html += '<div class="two-col"><section id="notes" class="card panel"><h2>해석 시 유의사항</h2>' +
