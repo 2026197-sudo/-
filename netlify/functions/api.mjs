@@ -16,8 +16,9 @@
 //
 //   GET  /api/health        저장소 연결 진단 (자료는 내보내지 않음)
 //
-// 관리자: Netlify 환경 변수 KPI_ADMINS = "인사번호:PIN" (여러 명은 쉼표로 구분).
-//         공개 저장소에 올리지 않으며, 같은 인사번호로는 회원가입할 수 없습니다.
+// 관리자: 가입자 중 관리자 권한이 있는 사람. 관리자가 한 명도 없으면 가장 먼저 가입한 사람이 관리자가 되고,
+//         이후 관리자가 '가입자 관리'에서 다른 가입자에게 관리자 권한을 주거나 뺄 수 있습니다.
+//         (비상용) Netlify 환경 변수 KPI_ADMINS = "인사번호:PIN" 으로도 관리자 로그인을 할 수 있습니다.
 // 자료·가입자 명단은 Netlify Blobs(사이트 전용 저장소)에 저장됩니다. PIN은 해시로만 보관합니다.
 import { getStore } from "@netlify/blobs";
 import { createHmac, randomBytes, scryptSync, timingSafeEqual } from "node:crypto";
@@ -95,7 +96,14 @@ async function readIndex(store) {
 }
 async function readUsers(store) {
   const u = await store.get(KEY_USERS, { type: "json" });
-  return Array.isArray(u) ? u : [];
+  const users = Array.isArray(u) ? u : [];
+  // 관리자가 한 명도 없으면 가장 먼저 가입한 사람을 관리자로 지정
+  if (users.length && !users.some((x) => x.admin) && admins().length === 0) {
+    const first = users.slice().sort((a, b) => String(a.createdAt || "").localeCompare(String(b.createdAt || "")))[0];
+    first.admin = true;
+    await store.setJSON(KEY_USERS, users);
+  }
+  return users;
 }
 async function archive(store, doc, reason) {
   const id = newId();
@@ -191,12 +199,12 @@ async function currentUser(req, store) {
   if (!token) return null;
   const p = verify(token, await secretOf(store));
   if (!p) return null;
-  if (p.admin) return admins().some((a) => a.id === p.id) ? { id: p.id, name: p.name || "관리자", dept: "", admin: true } : null;
+  if (p.env) return admins().some((a) => a.id === p.id) ? { id: p.id, name: "관리자", dept: "", admin: true } : null;
   const u = (await readUsers(store)).find((x) => x.id === p.id);
-  return u ? { id: u.id, name: u.name, dept: u.dept, admin: false } : null;
+  return u ? publicUser(u) : null;
 }
 async function issue(store, user) {
-  return sign({ id: user.id, name: user.name, admin: !!user.admin, exp: Date.now() + TOKEN_HOURS * 3600e3 }, await secretOf(store));
+  return sign({ id: user.id, env: !!user.env, exp: Date.now() + TOKEN_HOURS * 3600e3 }, await secretOf(store));
 }
 
 /* ---------- 담당자 저장: 본인 부서 지표만 반영 ---------- */
@@ -261,7 +269,8 @@ export default async (req, context) => {
       const user = { id, name, dept, salt, pinHash: hashPin(pin, salt), createdAt: kstIso() };
       users.push(user);
       await store.setJSON(KEY_USERS, users);
-      return json(200, { ok: true, token: await issue(store, user), user: publicUser(user) });
+      const saved = (await readUsers(store)).find((x) => x.id === id) || user; // 첫 가입자는 여기서 관리자가 됨
+      return json(200, { ok: true, token: await issue(store, saved), user: publicUser(saved) });
     }
 
     if (path === "/api/auth/login" && req.method === "POST") {
@@ -274,7 +283,7 @@ export default async (req, context) => {
       }
       const admin = admins().find((a) => a.id === id);
       if (admin && safeEqual(admin.pin, pin)) {
-        const user = { id, name: "관리자", dept: "", admin: true };
+        const user = { id, name: "관리자", dept: "", admin: true, env: true };
         return json(200, { ok: true, token: await issue(store, user), user: publicUser(user) });
       }
       const u = !admin && (await readUsers(store)).find((x) => x.id === id);
@@ -282,7 +291,7 @@ export default async (req, context) => {
         const users = await readUsers(store);
         const me = users.find((x) => x.id === id);
         if (me) { me.lastLogin = kstIso(); await store.setJSON(KEY_USERS, users); }
-        return json(200, { ok: true, token: await issue(store, u), user: publicUser(u) });
+        return json(200, { ok: true, token: await issue(store, me || u), user: publicUser(me || u) });
       }
       await bump(store, ipKey, LOGIN_WINDOW);
       await bump(store, idKey, LOGIN_WINDOW);
@@ -327,7 +336,7 @@ export default async (req, context) => {
       }
       const backupId = await archive(store, current, "저장 전 자료");
       doc.meta.updatedAt = kstIso();
-      doc.meta.updatedBy = "관리자";
+      doc.meta.updatedBy = me.name === "관리자" ? "관리자" : `${me.name} (관리자)`;
       await store.setJSON(KEY_CURRENT, doc);
       return json(200, { ok: true, backup: backupId, updatedAt: doc.meta.updatedAt });
     }
@@ -350,13 +359,13 @@ export default async (req, context) => {
       await archive(store, await readCurrent(store), "되돌리기 전 자료");
       snap.meta = snap.meta || {};
       snap.meta.updatedAt = kstIso();
-      snap.meta.updatedBy = "관리자 (이력 되돌리기)";
+      snap.meta.updatedBy = `${me.name} (이력 되돌리기)`;
       await store.setJSON(KEY_CURRENT, snap);
       return json(200, { ok: true, updatedAt: snap.meta.updatedAt });
     }
 
     if (path === "/api/users" && req.method === "GET") {
-      const users = (await readUsers(store)).map((u) => ({ id: u.id, name: u.name, dept: u.dept, createdAt: u.createdAt || null, lastLogin: u.lastLogin || null }));
+      const users = (await readUsers(store)).map((u) => ({ id: u.id, name: u.name, dept: u.dept, admin: !!u.admin, createdAt: u.createdAt || null, lastLogin: u.lastLogin || null }));
       return json(200, { users, departments: departmentsOf(await readCurrent(store)) });
     }
 
@@ -368,15 +377,20 @@ export default async (req, context) => {
       const users = await readUsers(store);
       const i = users.findIndex((u) => u.id === id);
       if (i < 0) return json(404, { error: "가입자를 찾을 수 없습니다." });
+      const lastAdmin = users[i].admin && users.filter((u) => u.admin).length === 1 && admins().length === 0;
       if (action === "delete") {
+        if (lastAdmin) return json(400, { error: "마지막 관리자는 삭제할 수 없습니다. 다른 가입자에게 관리자 권한을 먼저 주세요." });
         users.splice(i, 1);
       } else if (action === "update") {
         const name = String(body.value.name || "").trim().slice(0, 20);
         const dept = String(body.value.dept || "").trim();
         if (!name) return json(400, { error: "이름을 입력해 주세요." });
         if (!departmentsOf(await readCurrent(store)).includes(dept)) return json(400, { error: "부서를 목록에서 골라 주세요." });
+        const admin = body.value.admin === undefined ? !!users[i].admin : !!body.value.admin;
+        if (lastAdmin && !admin) return json(400, { error: "마지막 관리자의 권한은 뺄 수 없습니다. 다른 가입자에게 관리자 권한을 먼저 주세요." });
         users[i].name = name;
         users[i].dept = dept;
+        users[i].admin = admin;
       } else {
         return json(400, { error: "알 수 없는 요청입니다." });
       }

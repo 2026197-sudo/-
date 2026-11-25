@@ -55,7 +55,7 @@
     var box = document.createElement('span');
     box.className = 'user-box';
     box.id = 'userChip';
-    box.innerHTML = '<span class="user-name">' + esc(user.name) + (user.admin ? '' : ' <span class="user-dept">' + esc(user.dept) + '</span>') + '</span>' +
+    box.innerHTML = '<span class="user-name">' + esc(user.name) + (user.admin ? (user.name === '관리자' ? '' : ' <span class="user-role">관리자</span>') : ' <span class="user-dept">' + esc(user.dept) + '</span>') + '</span>' +
       '<button type="button" class="btn btn-sm" id="logoutBtn">로그아웃</button>';
     tools.appendChild(box);
     document.getElementById('logoutBtn').addEventListener('click', function () { clear(); location.href = './'; });
