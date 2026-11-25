@@ -16,10 +16,10 @@ export default {
       60,
       90
     ],
-    "y1AvgRate": 113,
+    "y1AvgRate": 112,
     "updatedAt": "2026-10-16T17:15:00+09:00",
     "updatedBy": "초기 데이터",
-    "schema": 3
+    "schema": 4
   },
   "indices": [
     {
@@ -94,8 +94,8 @@ export default {
       "base": 88.4,
       "y1": {
         "target": 91.8,
-        "actual": 100.3,
-        "rate": 109.3
+        "actual": 100.5,
+        "rate": 109.5
       },
       "items": [
         {
@@ -128,7 +128,7 @@ export default {
             "y2": 92.6,
             "y3": 92.6
           },
-          "y1Actual": 90.8,
+          "y1Actual": 91.2,
           "current": null,
           "status": "missing",
           "note": "4.1자 대비 10.1자 재학인원 · 10.1자 미입력",
@@ -142,8 +142,8 @@ export default {
       "base": 97.7,
       "y1": {
         "target": 98.4,
-        "actual": 106,
-        "rate": 107.7
+        "actual": 103.4,
+        "rate": 105.1
       },
       "items": [
         {
@@ -208,8 +208,8 @@ export default {
       "base": 81.3,
       "y1": {
         "target": 85.1,
-        "actual": 102.2,
-        "rate": 120.2
+        "actual": 100.8,
+        "rate": 118.4
       },
       "items": [
         {
@@ -224,7 +224,7 @@ export default {
             "y2": 0.2,
             "y3": 0.2
           },
-          "y1Actual": null,
+          "y1Actual": 0.2,
           "current": 0.18,
           "status": "pending",
           "note": "사후검사 전 · 0.18점 근거 미확인",
@@ -242,7 +242,7 @@ export default {
             "y2": 118,
             "y3": 123
           },
-          "y1Actual": null,
+          "y1Actual": 125,
           "current": 71,
           "status": "actual",
           "note": "인적자원 공유 미입력 · 학점교류 2학기 확인",
@@ -260,7 +260,7 @@ export default {
             "y2": 27,
             "y3": 32
           },
-          "y1Actual": null,
+          "y1Actual": 33,
           "current": 18,
           "status": "actual",
           "note": "",
