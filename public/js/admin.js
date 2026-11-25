@@ -187,7 +187,7 @@
       });
       L.set(next, rows);
     });
-    next.meta.schema = K.SCHEMA;
+    next.meta.schema = 3;
     return { next: next, bad: bad };
   }
 
