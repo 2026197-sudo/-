@@ -11,17 +11,29 @@
     { key: 'notes', title: '해석 시 유의사항 (직접 입력)', hint: '자동 항목 외에 꼭 알려야 할 해석상 주의점을 적습니다. 필요 없어지면 삭제하세요.',
       get: function (d) { return d.notes; }, set: function (d, v) { d.notes = v; }, done: false,
       fields: [{ k: 'title', label: '제목' }, { k: 'body', label: '내용', area: true }] },
-    { key: 'events', title: '측정 기준일과 남은 일정', hint: '날짜를 비워 두면 [일정 확인]으로 표시됩니다. 지난 일정은 완료로 표시하세요.',
-      get: function (d) { return d.events; }, set: function (d, v) { d.events = v; }, done: true,
+    { key: 'events', title: '측정 기준일과 남은 일정 (직접 입력)', hint: '분기 기준일·측정기간 종료·측정 전 지표 일정은 자동으로 표시됩니다. 날짜가 지나면 끝난 일정으로 자동 이동하고, 연결 지표를 고르면 그 지표가 실적으로 입력될 때 자동 완료됩니다.',
+      get: function (d) { return d.events; }, set: function (d, v) { d.events = v; }, done: true, link: true,
       fields: [{ k: 'date', label: '날짜', type: 'date' }, { k: 'name', label: '일정' }, { k: 'desc', label: '설명 · 담당' }] },
-    { key: 'fixdata', title: '실적 파일 필수확인사항', hint: '엑셀 등 실적 자료에서 고쳐야 할 점입니다.',
-      get: function (d) { return d.fixes.data; }, set: function (d, v) { d.fixes.data = v; }, done: true,
+    { key: 'fixdata', title: '실적 파일 필수확인사항', hint: '엑셀 등 실적 자료에서 고쳐야 할 점입니다. 연결 지표를 고르면 그 지표가 실적으로 입력될 때 자동 완료됩니다.',
+      get: function (d) { return d.fixes.data; }, set: function (d, v) { d.fixes.data = v; }, done: true, link: true,
       fields: [{ k: 'item', label: '확인사항' }, { k: 'owner', label: '담당 부서', narrow: true }] },
     { key: 'fixdoc', title: '정의서 정정 필요 사항', hint: '성과지표 정의서에서 정정할 내용입니다.',
       get: function (d) { return d.fixes.doc; }, set: function (d, v) { d.fixes.doc = v; }, done: true,
       fields: [{ k: 'item', label: '항목' }, { k: 'detail', label: '내용' }] }
   ];
   var work = {}; // 편집 중인 문구 목록 (저장 전)
+
+  function itemOptions(selected) {
+    var html = '';
+    (data.indices || []).forEach(function (ix) {
+      html += '<optgroup label="' + esc(ix.name) + '">';
+      ix.items.forEach(function (it) {
+        html += '<option value="' + esc(it.id) + '"' + (it.id === selected ? ' selected' : '') + '>' + esc(it.short || it.name) + '</option>';
+      });
+      html += '</optgroup>';
+    });
+    return html;
+  }
 
   function renderLists() {
     var html = '';
@@ -35,6 +47,7 @@
       } else {
         html += '<div class="table-scroll"><table class="le-table"><thead><tr>' +
           L.fields.map(function (f) { return '<th scope="col">' + esc(f.label) + '</th>'; }).join('') +
+          (L.link ? '<th scope="col">연결 지표</th>' : '') +
           (L.done ? '<th scope="col" class="c">완료</th>' : '') + '<th scope="col" class="c">삭제</th></tr></thead><tbody>';
         rows.forEach(function (row, i) {
           html += '<tr' + (row.done ? ' class="is-done"' : '') + '>';
@@ -45,6 +58,12 @@
               ? '<textarea class="cell-input wide" rows="2" id="' + id + '"' + aria + '>' + esc(v) + '</textarea>'
               : '<input class="cell-input ' + (f.type === 'date' ? '' : f.narrow ? 'mid' : 'wide') + '" type="' + (f.type || 'text') + '" id="' + id + '"' + aria + ' value="' + esc(v) + '">') + '</td>';
           });
+          if (L.link) {
+            var autoDone = K.linkDone(row, data);
+            html += '<td><select class="cell-select" id="L-' + L.key + '-' + i + '-link" aria-label="' + esc(L.title + ' ' + (i + 1) + '번 연결 지표') + '">' +
+              '<option value="">연결 안 함</option>' + itemOptions(row.link) + '</select>' +
+              (autoDone ? '<div class="small" style="color:var(--chip-ink);margin-top:4px">연결 지표 입력됨 · 자동 완료</div>' : '') + '</td>';
+          }
           if (L.done) {
             html += '<td class="c"><input type="checkbox" class="le-check" id="L-' + L.key + '-' + i + '-done"' + (row.done ? ' checked' : '') +
               ' aria-label="' + esc(L.title + ' ' + (i + 1) + '번 완료') + '"></td>';
@@ -71,6 +90,10 @@
         if (L.done) {
           var c = document.getElementById('L-' + L.key + '-' + i + '-done');
           if (c) out.done = c.checked;
+        }
+        if (L.link) {
+          var sel = document.getElementById('L-' + L.key + '-' + i + '-link');
+          if (sel) { if (sel.value) out.link = sel.value; else delete out.link; }
         }
         return out;
       });
@@ -164,7 +187,7 @@
       });
       L.set(next, rows);
     });
-    next.meta.schema = 2;
+    next.meta.schema = 3;
     return { next: next, bad: bad };
   }
 

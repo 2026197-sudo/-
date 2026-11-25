@@ -330,3 +330,6 @@ footer .wrap { padding-top: 22px; padding-bottom: 22px; display: flex; flex-wrap
 .cell-input.mid { width: 160px; }
 textarea.cell-input { resize: vertical; line-height: 1.5; font-family: inherit; }
 .panel ol span.tag { display: inline-block; color: var(--chip-ink); }
+.tag-autodone { background: var(--chip-bg); color: var(--chip-ink); border-color: transparent; }
+.btn-excel { color: #0B3591; border-color: #0B3591; }
+.btn-excel:hover { background: #E8EDF8; }

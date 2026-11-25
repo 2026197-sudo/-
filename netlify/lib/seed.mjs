@@ -16,10 +16,10 @@ export default {
       60,
       90
     ],
-    "y1AvgRate": 113.0,
+    "y1AvgRate": 113,
     "updatedAt": "2026-10-16T17:15:00+09:00",
     "updatedBy": "초기 데이터",
-    "schema": 2
+    "schema": 3
   },
   "indices": [
     {
@@ -28,8 +28,8 @@ export default {
       "base": 57.1,
       "y1": {
         "target": 76.5,
-        "actual": 88.0,
-        "rate": 115.0
+        "actual": 88,
+        "rate": 115
       },
       "items": [
         {
@@ -142,7 +142,7 @@ export default {
       "base": 97.7,
       "y1": {
         "target": 98.4,
-        "actual": 106.0,
+        "actual": 106,
         "rate": 107.7
       },
       "items": [
@@ -288,30 +288,13 @@ export default {
       "date": "2026-10-01",
       "name": "재학인원 기준일",
       "desc": "유지율 산출용 10.1자 재학인원 입력 필요 · 학사운영팀",
-      "done": false
+      "done": false,
+      "link": "s2"
     },
     {
       "date": "",
       "name": "AI 셀터디 결과보고 결재",
       "desc": "결재 후 AI 맞춤형 학습지원 실적 확정 · 교수학습지원센터",
-      "done": false
-    },
-    {
-      "date": "",
-      "name": "3분기 실적(9~11월) 수합",
-      "desc": "분기 실적 수합 · 기획팀",
-      "done": false
-    },
-    {
-      "date": "",
-      "name": "수요자 만족도 조사 · 핵심역량 사후검사",
-      "desc": "학년도 말 시행 · IR센터",
-      "done": false
-    },
-    {
-      "date": "2027-02-28",
-      "name": "2차년도 실적 집계 마감",
-      "desc": "측정기간 종료 (해당연도 3.1 ~ 차년도 2월 말)",
       "done": false
     }
   ],
@@ -320,7 +303,8 @@ export default {
       {
         "item": "유지율 계 수식을 10.1자 ÷ 4.1자 × 100으로 수정하고 10.1자 재학인원 입력",
         "owner": "학사운영팀",
-        "done": false
+        "done": false,
+        "link": "s2"
       },
       {
         "item": "달성현황 유지율·열린평생 실적의 외부 파일 참조를 같은 파일 시트 참조로 변경",
@@ -350,7 +334,8 @@ export default {
       {
         "item": "교육만족도 73점, 핵심역량 0.18점 근거 확인 또는 측정 전 처리",
         "owner": "IR센터",
-        "done": false
+        "done": false,
+        "link": "f3"
       },
       {
         "item": "2023학년도 달성값 계산(M~O열) 삭제, 관리부서 열 단일화, 단위 표기 정리",

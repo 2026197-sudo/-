@@ -150,18 +150,17 @@
     if (!auto.notes.length && !data.notes.length) html += '<li class="dim">현재 특별한 유의사항이 없습니다.</li>';
     html += '</ol></section><section id="schedule" class="card panel"><h2>측정 기준일과 남은 일정</h2><div>';
     var now = new Date();
-    var openEvents = data.events.filter(function (e) { return e && !e.done; });
-    var doneEvents = data.events.filter(function (e) { return e && e.done; });
-    openEvents.forEach(function (e) {
-      var d = K.daysUntil(e.date, now), dd = '', late = false;
-      if (d !== null) { dd = d > 0 ? ' (D-' + d + ')' : d === 0 ? ' (오늘)' : ' (지남)'; late = d < 0; }
-      html += '<div class="list-row' + (late ? ' is-late' : '') + '"><span class="date">' + (e.date ? esc(K.dotDate(e.date)) : '[일정 확인]') + '</span>' +
-        '<span class="body"><span>' + esc(e.name) + esc(dd) + '</span><span class="sub">' + esc(e.desc) + '</span></span></div>';
+    var sch = K.scheduleOf(data, r, now);
+    sch.open.forEach(function (e) {
+      var d = K.daysUntil(e.date, now), dd = '';
+      if (d !== null) dd = d > 0 ? ' (D-' + d + ')' : ' (오늘)';
+      html += '<div class="list-row"><span class="date">' + (e.date ? esc(K.dotDate(e.date)) : '[일정 확인]') + '</span>' +
+        '<span class="body"><span>' + (e.auto ? '<span class="tag tag-auto">자동</span>' : '') + esc(e.name) + esc(dd) + '</span><span class="sub">' + esc(e.desc) + '</span></span></div>';
     });
-    if (!openEvents.length) html += '<p class="dim">남은 일정이 없습니다.</p>';
-    html += doneList(doneEvents, function (e) {
+    if (!sch.open.length) html += '<p class="dim">남은 일정이 없습니다.</p>';
+    html += doneList(sch.closed, function (e) {
       return '<span class="date">' + (e.date ? esc(K.dotDate(e.date)) : '—') + '</span><span class="body"><span>' + esc(e.name) + '</span></span>';
-    });
+    }, '끝난 일정');
     html += '</div></section></div>';
 
     /* 필수확인사항: 자동 점검 + 직접 입력(완료 처리 가능) */
@@ -174,15 +173,20 @@
     if (!auto.checks.length) html += '<p class="dim">점검이 필요한 지표가 없습니다.</p>';
     html += '</div></div><div class="two-col">';
 
-    var fdOpen = data.fixes.data.filter(function (f) { return f && !f.done; });
-    var fdDone = data.fixes.data.filter(function (f) { return f && f.done; });
-    html += '<div class="card panel"><h2>실적 파일 필수확인사항</h2><div class="desc">분기 실적 엑셀 기준 · 처리하면 실적 입력 화면에서 완료로 표시하세요.</div><div>';
+    var fdOpen = [], fdDone = [];
+    data.fixes.data.forEach(function (f) {
+      if (!f || (!f.item && !f.owner)) return;
+      if (f.done) fdDone.push(Object.assign({ why: '완료' }, f));
+      else if (K.linkDone(f, data)) fdDone.push(Object.assign({ why: '자동 완료' }, f));
+      else fdOpen.push(f);
+    });
+    html += '<div class="card panel"><h2>실적 파일 필수확인사항</h2><div class="desc">분기 실적 엑셀 기준 · 연결한 지표가 실적으로 입력되면 자동 완료되고, 그 밖의 항목은 실적 입력 화면에서 완료로 표시하세요.</div><div>';
     fdOpen.forEach(function (f) { html += '<div class="list-row"><span>' + esc(f.item) + '</span><span class="owner">' + esc(f.owner) + '</span></div>'; });
     if (!fdOpen.length) html += '<p class="dim">남은 확인사항이 없습니다.</p>';
     html += doneList(fdDone, function (f) { return '<span class="body"><span>' + esc(f.item) + '</span></span><span class="owner">' + esc(f.owner) + '</span>'; });
 
     var docOpen = data.fixes.doc.filter(function (f) { return f && !f.done; });
-    var docDone = data.fixes.doc.filter(function (f) { return f && f.done; });
+    var docDone = data.fixes.doc.filter(function (f) { return f && f.done; }).map(function (f) { return Object.assign({ why: '완료' }, f); });
     html += '</div></div><div class="card panel"><h2>정의서 정정 필요 사항</h2><div class="desc">정의서 산출식 재계산 결과 · 정정하면 완료로 표시하세요.</div><div>';
     docOpen.forEach(function (f) { html += '<div class="list-row"><span class="body"><span style="font-weight:500">' + esc(f.item) + '</span><span class="sub">' + esc(f.detail) + '</span></span></div>'; });
     if (!docOpen.length) html += '<p class="dim">남은 정정 사항이 없습니다.</p>';
@@ -195,11 +199,13 @@
   }
 
   /* 완료 처리된 항목은 접어서 '완료 n건'으로 보여 줍니다 */
-  function doneList(list, rowHtml) {
+  function doneList(list, rowHtml, label) {
     if (!list.length) return '';
-    return '<details class="done-list"><summary>완료 ' + list.length + '건 보기</summary>' +
-      list.map(function (x) { return '<div class="list-row is-done">' + rowHtml(x) + '<span class="tag tag-done">완료</span></div>'; }).join('') +
-      '</details>';
+    return '<details class="done-list"><summary>' + (label || '완료') + ' ' + list.length + '건 보기</summary>' +
+      list.map(function (x) {
+        var why = x.why || '완료';
+        return '<div class="list-row is-done">' + rowHtml(x) + '<span class="tag tag-done' + (why === '자동 완료' ? ' tag-autodone' : '') + '">' + esc(why) + '</span></div>';
+      }).join('') + '</details>';
   }
 
   function banner(html, kind) {

@@ -188,9 +188,102 @@
     if (!Array.isArray(d.fixes.doc)) d.fixes.doc = [];
     if (!(Number(d.meta.schema) >= 2)) {
       d.notes = d.notes.filter(function (n) { return !n || LEGACY_AUTO_NOTES.indexOf(n.title) < 0; });
-      d.meta.schema = 2;
     }
+    if (!(Number(d.meta.schema) >= 3)) {
+      // 분기 기준일·측정기간 종료는 이제 자동 일정으로 표시되므로 같은 내용의 직접 입력 일정은 뺍니다
+      d.events = d.events.filter(function (e) {
+        var n = (e && e.name) || '';
+        return !(/실적 집계 마감/.test(n) || /분기 실적.*수합/.test(n) || /^수요자 만족도 조사/.test(n));
+      });
+      // 예전 자료의 항목 중 지표와 바로 이어지는 것은 연결해 둡니다 (해당 지표가 실적으로 입력되면 자동 완료)
+      d.events.forEach(function (e) { if (e && !e.link && /^재학인원 기준일/.test(e.name || '')) e.link = 's2'; });
+      d.fixes.data.forEach(function (f) {
+        if (!f || f.link) return;
+        if (/^유지율 계 수식/.test(f.item || '')) f.link = 's2';
+        else if (/^교육만족도 73점/.test(f.item || '')) f.link = 'f3';
+      });
+    }
+    d.meta.schema = 3;
     return d;
+  }
+
+  /* 지표 연결: 항목에 연결한 지표가 '실적'으로 입력되면 자동 완료 */
+  function findItem(d, id) {
+    var found = null;
+    (d.indices || []).forEach(function (ix) { (ix.items || []).forEach(function (it) { if (it.id === id) found = it; }); });
+    return found;
+  }
+  function linkDone(entry, d) {
+    if (!entry || !entry.link) return false;
+    var it = findItem(d, entry.link);
+    return !!(it && it.status === 'actual' && num(it.current) !== null);
+  }
+
+  /* 분기 계산: 측정기간 시작월부터 3개월씩 (예: 3~5월 1분기, 6~8월 2분기, 9~11월 3분기, 12~2월 4분기) */
+  function lastDay(y, m) { return new Date(Date.UTC(y, m, 0)).getUTCDate(); } // m: 1~12
+  function ymd(y, m, dd) { return y + '-' + pad(m) + '-' + pad(dd); }
+  function addMonths(y, m, k) { var t = y * 12 + (m - 1) + k; return { y: Math.floor(t / 12), m: (t % 12) + 1 }; }
+  function quarterOf(meta, dateStr) {
+    var s = String(meta.periodStart || '').split('-').map(Number), a = String(dateStr || '').split('-').map(Number);
+    if (s.length < 2 || a.length < 2 || !s[0] || !a[0]) return null;
+    var off = (a[0] * 12 + a[1]) - (s[0] * 12 + s[1]);
+    var q = Math.floor(off / 3);
+    if (q < 0 || q > 3) return null;
+    var first = addMonths(s[0], s[1], q * 3), last = addMonths(s[0], s[1], q * 3 + 2);
+    return { q: q + 1, m1: first.m, m3: last.m, end: ymd(last.y, last.m, lastDay(last.y, last.m)) };
+  }
+
+  /* 자동 일정: 다음 분기 실적 기준일, 측정기간 종료, 측정 전 지표의 측정 일정 */
+  function autoEvents(d, r) {
+    var m = d.meta, list = [];
+    var cur = quarterOf(m, m.asOfDate), next = null;
+    if (cur && cur.q < 4) {
+      var s = String(m.periodStart).split('-').map(Number);
+      var nf = addMonths(s[0], s[1], cur.q * 3), nl = addMonths(s[0], s[1], cur.q * 3 + 2);
+      next = { q: cur.q + 1, m1: nf.m, m3: nl.m, end: ymd(nl.y, nl.m, lastDay(nl.y, nl.m)) };
+    }
+    if (next) {
+      var isEnd = next.end === m.periodEnd;
+      list.push({ date: next.end, auto: true,
+        name: next.q + '분기 실적(' + next.m1 + '~' + next.m3 + '월) 기준일' + (isEnd ? ' · 측정기간 종료' : ''),
+        desc: '분기 마감 후 실적 수합 · 실적 입력에서 기준일과 배지 문구를 함께 바꾸세요 · 기획팀' });
+      if (isEnd) return addPending(list);
+    }
+    if (m.periodEnd) list.push({ date: m.periodEnd, auto: true, name: '측정기간 종료 · 연차 실적 집계 마감', desc: '해당연도 3.1 ~ 차년도 2월 말 · 기획팀' });
+    return addPending(list);
+
+    function addPending(arr) {
+      var byDept = {};
+      r.indices.forEach(function (ix) { ix.items.forEach(function (it) {
+        if (it.state === 'pending') (byDept[it.dept] = byDept[it.dept] || []).push(it.short || it.name);
+      }); });
+      Object.keys(byDept).forEach(function (dept) {
+        arr.push({ date: '', auto: true, name: byDept[dept].join(', ') + ' 측정',
+          desc: '측정 후 실적 입력에서 상태를 \'실적\'으로 바꾸면 이 일정은 자동으로 사라집니다 · ' + dept });
+      });
+      return arr;
+    }
+  }
+
+  /* 일정 정리: 남은 일정(날짜순)과 끝난 일정(완료·자동 완료·지난 일정) */
+  function scheduleOf(d, r, now) {
+    var open = [], closed = [];
+    autoEvents(d, r).forEach(function (e) {
+      var dd = daysUntil(e.date, now);
+      if (dd !== null && dd < 0) closed.push(Object.assign({ why: '지난 일정' }, e)); else open.push(e);
+    });
+    (d.events || []).forEach(function (e) {
+      if (!e || (!e.name && !e.desc)) return;
+      var dd = daysUntil(e.date, now);
+      if (e.done) closed.push(Object.assign({ why: '완료' }, e));
+      else if (linkDone(e, d)) closed.push(Object.assign({ why: '자동 완료' }, e));
+      else if (dd !== null && dd < 0) closed.push(Object.assign({ why: '지난 일정' }, e));
+      else open.push(e);
+    });
+    var key = function (e) { var t = ymdToUtc(e.date); return t === null ? Infinity : t; };
+    open.sort(function (a, b) { return key(a) - key(b); });
+    closed.sort(function (a, b) { return key(b) - key(a); });
+    return { open: open, closed: closed };
   }
 
   function josa(word, a, b) { // 받침 유무로 조사 선택 (이/가, 은/는)
@@ -265,6 +358,7 @@
     esc: esc, num: num, fmt: fmt, pct: pct, band: band, compute: compute,
     clockText: clockText, dotDate: dotDate, elapsedRatio: elapsedRatio, daysUntil: daysUntil,
     initTheme: initTheme, toggleTheme: toggleTheme, startClock: startClock,
-    normalize: normalize, insights: insights, josa: josa
+    normalize: normalize, insights: insights, josa: josa,
+    linkDone: linkDone, findItem: findItem, scheduleOf: scheduleOf, quarterOf: quarterOf
   };
 })(typeof window !== 'undefined' ? window : globalThis);
