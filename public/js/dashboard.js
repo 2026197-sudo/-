@@ -53,9 +53,11 @@
   }
 
   function render(data) {
+    K.normalize(data);
     window.KPI_CURRENT = data;
     var m = data.meta, r = K.compute(data), th = r.thresholds;
     var elapsed = K.elapsedRatio(m);
+    var auto = K.insights(r, elapsed);
     var asOf = K.dotDate(m.asOfDate);
     var html = '';
 
@@ -135,30 +137,69 @@
     });
     html += '</tbody></table></div><p class="foot-note">* 측정 전 지표(학년도 말 조사·사후검사)는 진척률을 계산하지 않으며, 입력된 값은 근거 확인 전 값으로 혁신지수 계산에만 포함됩니다. 미입력 지표는 0으로 계산됩니다.</p></div></section>';
 
-    /* 유의사항 + 일정 */
-    html += '<div class="two-col"><section id="notes" class="card panel"><h2>해석 시 유의사항</h2><ol>';
-    (data.notes || []).forEach(function (n) { html += '<li><b>' + esc(n.title) + '</b><span>' + esc(n.body) + '</span></li>'; });
+    /* 유의사항(자동 + 직접 입력) + 일정 */
+    html += '<div class="two-col"><section id="notes" class="card panel"><h2>해석 시 유의사항</h2>' +
+      '<div class="desc">자동 표시 항목은 실적 입력에 따라 바뀝니다.</div><ol>';
+    auto.notes.forEach(function (n) {
+      html += '<li><b><span class="tag tag-auto">자동</span>' + esc(n.title) + '</b><span>' + esc(n.body) + '</span></li>';
+    });
+    data.notes.forEach(function (n) {
+      if (!n || (!n.title && !n.body)) return;
+      html += '<li><b>' + esc(n.title) + '</b><span>' + esc(n.body) + '</span></li>';
+    });
+    if (!auto.notes.length && !data.notes.length) html += '<li class="dim">현재 특별한 유의사항이 없습니다.</li>';
     html += '</ol></section><section id="schedule" class="card panel"><h2>측정 기준일과 남은 일정</h2><div>';
     var now = new Date();
-    (data.events || []).forEach(function (e) {
-      var d = K.daysUntil(e.date, now), dd = '';
-      if (d !== null) dd = d > 0 ? ' (D-' + d + ')' : d === 0 ? ' (오늘)' : ' (지남)';
-      html += '<div class="list-row"><span class="date">' + (e.date ? esc(K.dotDate(e.date)) : '[일정 확인]') + '</span>' +
+    var openEvents = data.events.filter(function (e) { return e && !e.done; });
+    var doneEvents = data.events.filter(function (e) { return e && e.done; });
+    openEvents.forEach(function (e) {
+      var d = K.daysUntil(e.date, now), dd = '', late = false;
+      if (d !== null) { dd = d > 0 ? ' (D-' + d + ')' : d === 0 ? ' (오늘)' : ' (지남)'; late = d < 0; }
+      html += '<div class="list-row' + (late ? ' is-late' : '') + '"><span class="date">' + (e.date ? esc(K.dotDate(e.date)) : '[일정 확인]') + '</span>' +
         '<span class="body"><span>' + esc(e.name) + esc(dd) + '</span><span class="sub">' + esc(e.desc) + '</span></span></div>';
+    });
+    if (!openEvents.length) html += '<p class="dim">남은 일정이 없습니다.</p>';
+    html += doneList(doneEvents, function (e) {
+      return '<span class="date">' + (e.date ? esc(K.dotDate(e.date)) : '—') + '</span><span class="body"><span>' + esc(e.name) + '</span></span>';
     });
     html += '</div></section></div>';
 
-    /* 필수확인사항 */
-    var fx = data.fixes || {};
-    html += '<section id="fix" class="two-col"><div class="card panel"><h2>실적 파일 필수확인사항</h2><div class="desc">분기 실적 엑셀 기준</div><div>';
-    (fx.data || []).forEach(function (f) { html += '<div class="list-row"><span>' + esc(f.item) + '</span><span class="owner">' + esc(f.owner) + '</span></div>'; });
-    html += '</div></div><div class="card panel"><h2>정의서 정정 필요 사항</h2><div class="desc">정의서 산출식 재계산 결과</div><div>';
-    (fx.doc || []).forEach(function (f) { html += '<div class="list-row"><span class="body"><span style="font-weight:500">' + esc(f.item) + '</span><span class="sub">' + esc(f.detail) + '</span></span></div>'; });
-    html += '</div></div></section>';
+    /* 필수확인사항: 자동 점검 + 직접 입력(완료 처리 가능) */
+    html += '<section id="fix" class="fix-wrap"><div class="card panel"><h2>지표 자동 점검</h2>' +
+      '<div class="desc">미입력·측정 전·부진·기간 대비 부족 지표를 자동으로 보여 줍니다. 값을 입력하거나 실적이 오르면 목록에서 빠집니다.</div><div>';
+    auto.checks.forEach(function (c) {
+      html += '<div class="list-row"><span class="body"><span><span class="status check-label"><span class="mark mark-' + c.tag + '"></span>' + esc(c.label) + '</span> ' + esc(c.what) + '</span></span>' +
+        '<span class="owner">' + esc(c.who) + '</span></div>';
+    });
+    if (!auto.checks.length) html += '<p class="dim">점검이 필요한 지표가 없습니다.</p>';
+    html += '</div></div><div class="two-col">';
+
+    var fdOpen = data.fixes.data.filter(function (f) { return f && !f.done; });
+    var fdDone = data.fixes.data.filter(function (f) { return f && f.done; });
+    html += '<div class="card panel"><h2>실적 파일 필수확인사항</h2><div class="desc">분기 실적 엑셀 기준 · 처리하면 실적 입력 화면에서 완료로 표시하세요.</div><div>';
+    fdOpen.forEach(function (f) { html += '<div class="list-row"><span>' + esc(f.item) + '</span><span class="owner">' + esc(f.owner) + '</span></div>'; });
+    if (!fdOpen.length) html += '<p class="dim">남은 확인사항이 없습니다.</p>';
+    html += doneList(fdDone, function (f) { return '<span class="body"><span>' + esc(f.item) + '</span></span><span class="owner">' + esc(f.owner) + '</span>'; });
+
+    var docOpen = data.fixes.doc.filter(function (f) { return f && !f.done; });
+    var docDone = data.fixes.doc.filter(function (f) { return f && f.done; });
+    html += '</div></div><div class="card panel"><h2>정의서 정정 필요 사항</h2><div class="desc">정의서 산출식 재계산 결과 · 정정하면 완료로 표시하세요.</div><div>';
+    docOpen.forEach(function (f) { html += '<div class="list-row"><span class="body"><span style="font-weight:500">' + esc(f.item) + '</span><span class="sub">' + esc(f.detail) + '</span></span></div>'; });
+    if (!docOpen.length) html += '<p class="dim">남은 정정 사항이 없습니다.</p>';
+    html += doneList(docDone, function (f) { return '<span class="body"><span>' + esc(f.item) + '</span><span class="sub">' + esc(f.detail) + '</span></span>'; });
+    html += '</div></div></div></section>';
 
     document.getElementById('app').innerHTML = html;
     var up = m.updatedAt ? new Date(m.updatedAt) : null;
     document.getElementById('updated').textContent = '최종 수정 ' + (up && !isNaN(up) ? K.clockText(up).replace(/:\d\d KST$/, '') : '—') + (m.updatedBy ? ' · ' + m.updatedBy : '');
+  }
+
+  /* 완료 처리된 항목은 접어서 '완료 n건'으로 보여 줍니다 */
+  function doneList(list, rowHtml) {
+    if (!list.length) return '';
+    return '<details class="done-list"><summary>완료 ' + list.length + '건 보기</summary>' +
+      list.map(function (x) { return '<div class="list-row is-done">' + rowHtml(x) + '<span class="tag tag-done">완료</span></div>'; }).join('') +
+      '</details>';
   }
 
   function banner(html, kind) {
@@ -170,13 +211,15 @@
   }
 
   /* 저장소(API)에 연결하지 못하면 배포 시 함께 올린 기본 자료(data.json)를 읽기 전용으로 표시 */
+  var lastError = '';
   function loadFallback() {
     fetch('data.json', { cache: 'no-store' })
       .then(function (res) { if (!res.ok) throw new Error(res.status); return res.json(); })
       .then(function (data) {
         lastStamp = 'fallback';
         render(data);
-        banner('<b>읽기 전용</b> · 저장소에 연결하지 못해 배포 시점의 기본 자료를 보여 주고 있습니다. 잠시 후 새로고침해 주세요.', 'banner-error');
+        banner('<b>읽기 전용</b> · 저장소에 연결하지 못해 배포 시점의 기본 자료를 보여 주고 있습니다. 잠시 후 새로고침해 주세요.' +
+          (lastError ? ' <span class="small">(원인: ' + esc(lastError) + ' · 진단: <a href="api/health" target="_blank" rel="noopener">api/health</a>)</span>' : ''), 'banner-error');
       })
       .catch(function () {
         document.getElementById('app').innerHTML = '<div class="banner banner-error">자료를 불러오지 못했습니다. 잠시 후 새로고침해 주세요.</div>';
@@ -185,12 +228,20 @@
 
   function load() {
     fetch('api/data', { cache: 'no-store' })
-      .then(function (res) { if (!res.ok) throw new Error(res.status); return res.json(); })
+      .then(function (res) {
+        if (!res.ok) {
+          return res.json().catch(function () { return {}; }).then(function (b) {
+            throw new Error('HTTP ' + res.status + (b && b.detail ? ' ' + b.detail : b && b.error ? ' ' + b.error : ''));
+          });
+        }
+        return res.json();
+      })
       .then(function (data) {
         var stamp = data.meta && data.meta.updatedAt;
         if (stamp !== lastStamp) { lastStamp = stamp; render(data); }
       })
-      .catch(function () {
+      .catch(function (err) {
+        lastError = (err && err.message) || '연결 실패';
         if (lastStamp === null) loadFallback();
       });
   }

@@ -6,6 +6,93 @@
   var STATES = [['actual', '실적'], ['pending', '측정 전'], ['missing', '미입력']];
   var WHO_KEY = 'kmcuKpiEditor';
 
+  /* 대시보드 문구 목록 편집기 설정 */
+  var LISTS = [
+    { key: 'notes', title: '해석 시 유의사항 (직접 입력)', hint: '자동 항목 외에 꼭 알려야 할 해석상 주의점을 적습니다. 필요 없어지면 삭제하세요.',
+      get: function (d) { return d.notes; }, set: function (d, v) { d.notes = v; }, done: false,
+      fields: [{ k: 'title', label: '제목' }, { k: 'body', label: '내용', area: true }] },
+    { key: 'events', title: '측정 기준일과 남은 일정', hint: '날짜를 비워 두면 [일정 확인]으로 표시됩니다. 지난 일정은 완료로 표시하세요.',
+      get: function (d) { return d.events; }, set: function (d, v) { d.events = v; }, done: true,
+      fields: [{ k: 'date', label: '날짜', type: 'date' }, { k: 'name', label: '일정' }, { k: 'desc', label: '설명 · 담당' }] },
+    { key: 'fixdata', title: '실적 파일 필수확인사항', hint: '엑셀 등 실적 자료에서 고쳐야 할 점입니다.',
+      get: function (d) { return d.fixes.data; }, set: function (d, v) { d.fixes.data = v; }, done: true,
+      fields: [{ k: 'item', label: '확인사항' }, { k: 'owner', label: '담당 부서', narrow: true }] },
+    { key: 'fixdoc', title: '정의서 정정 필요 사항', hint: '성과지표 정의서에서 정정할 내용입니다.',
+      get: function (d) { return d.fixes.doc; }, set: function (d, v) { d.fixes.doc = v; }, done: true,
+      fields: [{ k: 'item', label: '항목' }, { k: 'detail', label: '내용' }] }
+  ];
+  var work = {}; // 편집 중인 문구 목록 (저장 전)
+
+  function renderLists() {
+    var html = '';
+    LISTS.forEach(function (L) {
+      var rows = work[L.key];
+      html += '<div class="list-editor"><div class="le-head"><h3>' + esc(L.title) + '</h3>' +
+        '<button type="button" class="btn btn-sm" data-add="' + L.key + '">+ 항목 추가</button></div>' +
+        '<p class="dim small">' + esc(L.hint) + '</p>';
+      if (!rows.length) {
+        html += '<p class="dim small">항목이 없습니다.</p>';
+      } else {
+        html += '<div class="table-scroll"><table class="le-table"><thead><tr>' +
+          L.fields.map(function (f) { return '<th scope="col">' + esc(f.label) + '</th>'; }).join('') +
+          (L.done ? '<th scope="col" class="c">완료</th>' : '') + '<th scope="col" class="c">삭제</th></tr></thead><tbody>';
+        rows.forEach(function (row, i) {
+          html += '<tr' + (row.done ? ' class="is-done"' : '') + '>';
+          L.fields.forEach(function (f) {
+            var id = 'L-' + L.key + '-' + i + '-' + f.k, v = row[f.k] === undefined || row[f.k] === null ? '' : row[f.k];
+            var aria = ' aria-label="' + esc(L.title + ' ' + (i + 1) + '번 ' + f.label) + '"';
+            html += '<td>' + (f.area
+              ? '<textarea class="cell-input wide" rows="2" id="' + id + '"' + aria + '>' + esc(v) + '</textarea>'
+              : '<input class="cell-input ' + (f.type === 'date' ? '' : f.narrow ? 'mid' : 'wide') + '" type="' + (f.type || 'text') + '" id="' + id + '"' + aria + ' value="' + esc(v) + '">') + '</td>';
+          });
+          if (L.done) {
+            html += '<td class="c"><input type="checkbox" class="le-check" id="L-' + L.key + '-' + i + '-done"' + (row.done ? ' checked' : '') +
+              ' aria-label="' + esc(L.title + ' ' + (i + 1) + '번 완료') + '"></td>';
+          }
+          html += '<td class="c"><button type="button" class="btn btn-sm btn-icon" data-del="' + L.key + ':' + i + '" aria-label="' + esc(L.title + ' ' + (i + 1) + '번 삭제') + '">' +
+            '<svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg></button></td></tr>';
+        });
+        html += '</tbody></table></div>';
+      }
+      html += '</div>';
+    });
+    document.getElementById('textEditors').innerHTML = html;
+  }
+
+  // 화면에 입력된 값을 편집 중 목록에 반영
+  function syncLists() {
+    LISTS.forEach(function (L) {
+      work[L.key] = work[L.key].map(function (row, i) {
+        var out = Object.assign({}, row);
+        L.fields.forEach(function (f) {
+          var el = document.getElementById('L-' + L.key + '-' + i + '-' + f.k);
+          if (el) out[f.k] = el.value.trim();
+        });
+        if (L.done) {
+          var c = document.getElementById('L-' + L.key + '-' + i + '-done');
+          if (c) out.done = c.checked;
+        }
+        return out;
+      });
+    });
+  }
+
+  function renderAutoPreview(d) {
+    var box = document.getElementById('autoPreview');
+    if (!box) return;
+    var r = K.compute(d), auto = K.insights(r, K.elapsedRatio(d.meta));
+    var html = '';
+    if (auto.notes.length) {
+      html += '<p class="small"><b>유의사항</b></p><ul>' + auto.notes.map(function (n) { return '<li>' + esc(n.title) + '</li>'; }).join('') + '</ul>';
+    }
+    if (auto.checks.length) {
+      html += '<p class="small"><b>지표 자동 점검</b></p><ul>' + auto.checks.map(function (c) {
+        return '<li><span class="status"><span class="mark mark-' + c.tag + '"></span>' + esc(c.label) + '</span> ' + esc(c.what) + ' <span class="dim">(' + esc(c.who) + ')</span></li>';
+      }).join('') + '</ul>';
+    }
+    box.innerHTML = html || '<p class="dim small">현재 자동으로 표시할 항목이 없습니다.</p>';
+  }
+
   function msg(text, ok) {
     document.getElementById('msg').innerHTML = text ? '<div class="banner ' + (ok ? 'banner-ok' : 'banner-error') + '">' + esc(text) + '</div>' : '';
     if (text) document.getElementById('msg').scrollIntoView({ behavior: 'smooth', block: 'nearest' });
@@ -39,6 +126,9 @@
       });
     });
     document.getElementById('rows').innerHTML = html;
+    LISTS.forEach(function (L) { work[L.key] = JSON.parse(JSON.stringify(L.get(data) || [])); });
+    renderLists();
+    renderAutoPreview(data);
     document.getElementById('updated').textContent = '최종 수정 ' + shortTime(m.updatedAt) + (m.updatedBy ? ' · ' + m.updatedBy : '');
   }
 
@@ -62,6 +152,19 @@
         it.dept = document.getElementById(id + '-dept').value.trim();
       });
     });
+    syncLists();
+    LISTS.forEach(function (L) {
+      var rows = work[L.key].filter(function (row) {
+        return L.fields.some(function (f) { return row[f.k]; }); // 빈 줄은 저장하지 않음
+      }).map(function (row) {
+        var o = {};
+        Object.keys(row).forEach(function (k) { o[k] = typeof row[k] === 'string' ? row[k].slice(0, 500) : row[k]; });
+        if (L.done) o.done = !!row.done;
+        return o;
+      });
+      L.set(next, rows);
+    });
+    next.meta.schema = 2;
     return { next: next, bad: bad };
   }
 
@@ -76,7 +179,7 @@
     return fetch('api/data', { cache: 'no-store' }).then(function (r) {
       if (!r.ok) throw new Error();
       return r.json();
-    }).then(function (d) { data = d; fill(); });
+    }).then(function (d) { data = K.normalize(d); fill(); });
   }
 
   function loadHistory() {
@@ -128,6 +231,31 @@
   });
 
   document.getElementById('histReload').addEventListener('click', loadHistory);
+
+  document.getElementById('textEditors').addEventListener('click', function (e) {
+    var add = e.target.closest('[data-add]'), del = e.target.closest('[data-del]');
+    if (!add && !del) return;
+    syncLists();
+    if (add) {
+      var key = add.getAttribute('data-add');
+      work[key].push({});
+      renderLists();
+      var L = LISTS.filter(function (x) { return x.key === key; })[0];
+      var first = document.getElementById('L-' + key + '-' + (work[key].length - 1) + '-' + L.fields[0].k);
+      if (first) first.focus();
+    } else {
+      var parts = del.getAttribute('data-del').split(':');
+      work[parts[0]].splice(Number(parts[1]), 1);
+      renderLists();
+    }
+  });
+  document.getElementById('textEditors').addEventListener('change', function (e) {
+    if (e.target.classList.contains('le-check')) e.target.closest('tr').classList.toggle('is-done', e.target.checked);
+  });
+  // 수치·상태를 바꾸면 자동 항목 미리보기를 바로 갱신
+  document.getElementById('rows').addEventListener('change', function () {
+    if (data) renderAutoPreview(collect().next);
+  });
 
   document.getElementById('download').addEventListener('click', function () {
     if (!data) return;

@@ -299,3 +299,34 @@ footer .wrap { padding-top: 22px; padding-bottom: 22px; display: flex; flex-wrap
   .rp-two { grid-template-columns: 1fr 1fr; }
   .report h3 { break-after: avoid; }
 }
+
+/* 자동 표시 · 완료 처리 · 문구 관리 */
+.tag { display: inline-block; font-size: 11px; font-weight: 700; line-height: 1.6; padding: 0 7px; border-radius: 999px; margin-right: 6px; vertical-align: 1px; white-space: nowrap; }
+.tag-auto { background: var(--chip-bg); color: var(--chip-ink); }
+.tag-done { background: var(--surface-2); color: var(--subtle); border: 1px solid var(--border); margin: 0 0 0 auto; align-self: center; }
+.check-label { font-weight: 700; margin-right: 4px; }
+.fix-wrap { display: flex; flex-direction: column; gap: 24px; }
+.list-row.is-late .date { color: var(--st-red); }
+.list-row.is-done { opacity: .75; }
+.list-row.is-done .body > span:first-child, .list-row.is-done > span:first-child:not(.date) { text-decoration: line-through; color: var(--subtle); }
+.done-list { border-top: 1px solid var(--divider); margin-top: 4px; }
+.done-list summary { cursor: pointer; min-height: 44px; display: flex; align-items: center; font-size: 13px; font-weight: 600; color: var(--subtle); }
+.done-list summary:hover { color: var(--ink); }
+.auto-preview { margin-top: 4px; padding: 14px 16px; border-radius: 10px; background: var(--surface-2); border: 1px dashed var(--border); }
+.auto-preview h3 { margin: 0 0 4px; font-size: 14px; color: var(--heading); }
+.auto-preview ul { margin: 4px 0 8px; padding-left: 18px; font-size: 13px; display: flex; flex-direction: column; gap: 4px; }
+.auto-preview p { margin: 8px 0 0; }
+.list-editor { border-top: 1px solid var(--divider); padding-top: 16px; margin-top: 8px; }
+.le-head { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px; }
+.le-head h3 { margin: 0; font-size: 16px; color: var(--heading); }
+.list-editor > p { margin: 4px 0 10px; }
+.le-table { min-width: 720px; }
+.le-table th, .le-table td { padding: 8px 6px; }
+.le-table th:first-child, .le-table td:first-child { padding-left: 0; }
+.le-table th:last-child, .le-table td:last-child { padding-right: 0; }
+.le-table .c { text-align: center; width: 64px; }
+.le-table tr.is-done input:not([type=checkbox]), .le-table tr.is-done textarea { color: var(--subtle); text-decoration: line-through; }
+.le-check { width: 20px; height: 20px; accent-color: #0B3591; cursor: pointer; }
+.cell-input.mid { width: 160px; }
+textarea.cell-input { resize: vertical; line-height: 1.5; font-family: inherit; }
+.panel ol span.tag { display: inline-block; color: var(--chip-ink); }

@@ -172,9 +172,99 @@
     setInterval(tick, 1000);
   }
 
+  /* 자료 정리: 문구 목록이 없거나 예전 형식이면 맞춰 줍니다.
+     예전 자료의 고정 유의사항 중 지금은 자동으로 만들어지는 항목은 뺍니다(중복 방지). */
+  var LEGACY_AUTO_NOTES = [
+    '점수형 지표의 비율은 진척률이 아닙니다',
+    '유지율 미입력은 0으로 계산됩니다',
+    '유지율 0은 미달이 아니라 미입력입니다'
+  ];
+  function normalize(d) {
+    d.meta = d.meta || {};
+    if (!Array.isArray(d.notes)) d.notes = [];
+    if (!Array.isArray(d.events)) d.events = [];
+    if (!d.fixes || typeof d.fixes !== 'object' || Array.isArray(d.fixes)) d.fixes = {};
+    if (!Array.isArray(d.fixes.data)) d.fixes.data = [];
+    if (!Array.isArray(d.fixes.doc)) d.fixes.doc = [];
+    if (!(Number(d.meta.schema) >= 2)) {
+      d.notes = d.notes.filter(function (n) { return !n || LEGACY_AUTO_NOTES.indexOf(n.title) < 0; });
+      d.meta.schema = 2;
+    }
+    return d;
+  }
+
+  function josa(word, a, b) { // 받침 유무로 조사 선택 (이/가, 은/는)
+    var c = String(word).replace(/[)\s]+$/, '').slice(-1).charCodeAt(0);
+    return (c >= 0xAC00 && c <= 0xD7A3 && (c - 0xAC00) % 28) ? a : b;
+  }
+
+  /* 지표 상태로 자동 유의사항과 자동 점검 목록을 만듭니다.
+     값을 입력하거나 상태를 바꾸면 다음 화면부터 바로 바뀝니다. */
+  function insights(r, elapsedRatioValue) {
+    var el = elapsedRatioValue === null || elapsedRatioValue === undefined ? null : elapsedRatioValue * 100;
+    var notes = [], checks = [];
+    var pending = [], missing = [], red = [], lagging = [];
+    r.indices.forEach(function (ix) {
+      ix.items.forEach(function (it) {
+        var x = { it: it, ix: ix };
+        if (it.state === 'pending') pending.push(x);
+        else if (it.state === 'missing') missing.push(x);
+        else if (it.band && it.band.key === 'red') red.push(x);
+        else if (it.band && it.band.key === 'yellow' && el !== null && it.prog < el) lagging.push(x);
+      });
+    });
+
+    missing.forEach(function (x) {
+      var it = x.it;
+      notes.push({
+        title: (it.short || it.name) + ' 미입력은 0으로 계산됩니다',
+        body: '반영비중 ' + it.weight + '%라 값이 입력되면 ' + x.ix.name + josa(x.ix.name, '이', '가') + ' 크게 달라집니다.' + (it.note ? ' (' + it.note + ')' : '')
+      });
+      checks.push({ tag: 'missing', label: '미입력', who: it.dept, what: it.name + ' 자료 입력' + (it.note ? ' · ' + it.note : '') });
+    });
+
+    if (pending.length) {
+      var lines = pending.map(function (x) {
+        var it = x.it, cur = num(it.current), prev = num(it.y1Actual), s = it.short || it.name;
+        if (cur === null) return s;
+        var t = s + ' 입력값 ' + fmt(cur) + it.unit;
+        if (prev !== null && it.unit === '점') {
+          var diff = Math.round((cur - prev) * 100) / 100;
+          t += '(작년 ' + fmt(prev) + it.unit + ' 대비 ' + (diff > 0 ? '+' : diff < 0 ? '−' : '±') + fmt(Math.abs(diff)) + it.unit + ')';
+        }
+        return t;
+      });
+      notes.push({
+        title: '측정 전 지표 ' + pending.length + '개는 진척률을 계산하지 않습니다',
+        body: lines.join(', ') + '. 입력된 값은 근거 확인 전 값으로 혁신지수 계산에만 포함되며, 점수형 지표의 비율은 진척률이 아닙니다.'
+      });
+      var byDept = {};
+      pending.forEach(function (x) { (byDept[x.it.dept] = byDept[x.it.dept] || []).push(x.it.short || x.it.name); });
+      Object.keys(byDept).forEach(function (dept) {
+        checks.push({ tag: 'pending', label: '측정 전', who: dept, what: byDept[dept].join(', ') + ' 측정 일정 확정 및 입력값 근거 확인' });
+      });
+    }
+
+    red.forEach(function (x) {
+      var it = x.it;
+      notes.push({
+        title: (it.short || it.name) + ' 진척률이 ' + it.prog.toFixed(1) + '%로 부진합니다',
+        body: (el !== null ? '기간 경과율(' + el.toFixed(1) + '%)보다 ' + (el - it.prog).toFixed(1) + '%p 낮습니다. ' : '') + (it.note ? it.note : '')
+      });
+      checks.push({ tag: 'red', label: '부진', who: it.dept, what: it.name + ' 실적 점검 및 추진 계획 확인 (현재 ' + it.prog.toFixed(1) + '%)' });
+    });
+    lagging.forEach(function (x) {
+      var it = x.it;
+      checks.push({ tag: 'yellow', label: '주의', who: it.dept, what: it.name + ' 기간 경과율 대비 부족분 점검 (현재 ' + it.prog.toFixed(1) + '%, 경과율 ' + el.toFixed(1) + '%)' });
+    });
+
+    return { notes: notes, checks: checks };
+  }
+
   root.KPI = {
     esc: esc, num: num, fmt: fmt, pct: pct, band: band, compute: compute,
     clockText: clockText, dotDate: dotDate, elapsedRatio: elapsedRatio, daysUntil: daysUntil,
-    initTheme: initTheme, toggleTheme: toggleTheme, startClock: startClock
+    initTheme: initTheme, toggleTheme: toggleTheme, startClock: startClock,
+    normalize: normalize, insights: insights, josa: josa
   };
 })(typeof window !== 'undefined' ? window : globalThis);

@@ -3,6 +3,7 @@
 //   POST /api/data      자료 저장 (이전 자료는 변경 이력에 자동 보관)
 //   GET  /api/history   변경 이력 목록 (최근 순)
 //   POST /api/restore   변경 이력의 특정 시점으로 되돌리기  { "id": "..." }
+//   GET  /api/health    저장소 연결 진단 (문제가 있을 때 원인 확인용)
 // 자료는 Netlify Blobs(사이트 전용 저장소)에 저장됩니다. 별도 설정이나 로그인은 필요 없습니다.
 import { getStore } from "@netlify/blobs";
 import seed from "../lib/seed.mjs";
@@ -47,7 +48,19 @@ function validate(doc) {
       }
     }
   }
+  // 대시보드 문구(유의사항·일정·확인사항): 있으면 목록 형식이어야 합니다
+  const isList = (v) => v === undefined || (Array.isArray(v) && v.length <= 200 && v.every((x) => x && typeof x === "object" && !Array.isArray(x)));
+  if (!isList(doc.notes)) return "유의사항 목록 형식이 올바르지 않습니다.";
+  if (!isList(doc.events)) return "일정 목록 형식이 올바르지 않습니다.";
+  if (doc.fixes !== undefined) {
+    if (!doc.fixes || typeof doc.fixes !== "object" || Array.isArray(doc.fixes)) return "확인사항 형식이 올바르지 않습니다.";
+    if (!isList(doc.fixes.data) || !isList(doc.fixes.doc)) return "확인사항 목록 형식이 올바르지 않습니다.";
+  }
   return null;
+}
+
+function errInfo(e) {
+  return String((e && (e.name ? e.name + ": " : "") + (e.message || "")) || e).slice(0, 300);
 }
 
 async function readCurrent(store) {
@@ -88,9 +101,24 @@ async function readBody(req) {
 
 export default async (req) => {
   const path = new URL(req.url).pathname.replace(/\/+$/, "");
-  const store = getStore({ name: STORE_NAME, consistency: "strong" });
 
   try {
+    // 저장소 연결도 오류 처리 안에서 합니다 (연결 실패 시 원인을 돌려주기 위해)
+    const store = getStore({ name: STORE_NAME, consistency: "strong" });
+
+    if (path === "/api/health" && req.method === "GET") {
+      const idx = await readIndex(store);
+      const cur = await store.get(KEY_CURRENT, { type: "json" });
+      return json(200, {
+        ok: true,
+        store: "connected",
+        data: cur ? "saved" : "seed (아직 웹에서 저장한 적 없음)",
+        updatedAt: (cur && cur.meta && cur.meta.updatedAt) || (seed.meta && seed.meta.updatedAt) || null,
+        history: idx.length,
+        checkedAt: kstIso(),
+      });
+    }
+
     if (path === "/api/data" && req.method === "GET") {
       return json(200, await readCurrent(store));
     }
@@ -130,7 +158,7 @@ export default async (req) => {
     return json(404, { error: "not found" });
   } catch (e) {
     console.error(e);
-    return json(500, { error: "저장소 처리 중 오류가 발생했습니다." });
+    return json(500, { ok: false, error: "저장소 처리 중 오류가 발생했습니다.", detail: errInfo(e) });
   }
 };
 
