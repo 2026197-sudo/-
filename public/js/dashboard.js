@@ -71,7 +71,7 @@
     if (o.missing) prov.push('미입력 ' + o.missing + '개');
 
     /* 히어로 */
-    html += '<section id="summary" aria-labelledby="pageTitle"><div class="hero">' +
+    html += '<section id="summary" class="pane" data-pane="summary" aria-labelledby="pageTitle"><div class="hero">' +
       '<div class="hero-main"><div class="hero-badges"><span class="pill-red">' + esc(m.badge) + '</span><span class="hero-sub">' + esc(m.program) + '</span></div>' +
       '<h1 id="pageTitle">' + esc(m.title) + '</h1>' +
       '<div class="chips"><span class="chip-solid">' + esc(asOf) + ' 기준 측정기간 ' + pct(elPct) + ' 경과</span>' +
@@ -87,7 +87,7 @@
       '<span>2025 평균 달성률 <strong>' + pct(m.y1AvgRate) + '</strong></span>' +
       '<span class="status-pill">' + mark('actual', o.band) + esc(o.band.label) + '</span>' +
       (prov.length ? '<span class="hero-warn">잠정치: ' + esc(prov.join(', ')) + ' 지표 포함</span>' : '') +
-      '</div></div></div></section>';
+      '</div></div></div>';
 
     /* 범례 */
     html += '<div class="legend" role="note"><b>읽는 법</b>' +
@@ -95,7 +95,6 @@
       '<span class="status"><span class="mark mark-green"></span>양호 ' + th[1] + '~' + th[2] + '%</span>' +
       '<span class="status"><span class="mark mark-yellow"></span>주의 ' + th[0] + '~' + th[1] + '%</span>' +
       '<span class="status"><span class="mark mark-red"></span>부진 ' + th[0] + '% 미만</span>' +
-      '<span class="status"><span class="mark mark-behind"></span>경과율 미달</span>' +
       '<span class="status"><span class="mark mark-pending"></span>측정 전</span>' +
       '<span class="status"><span class="mark mark-missing"></span>미입력</span>' +
       '<span class="status"><span class="tick"></span>눈금: ' + esc(asOf) + ' 기준 기간 경과율</span></div>';
@@ -116,11 +115,12 @@
         (flags.length ? '<span class="flag">잠정치: ' + esc(flags.join(', ')) + '</span>' : '') +
         '</article>';
     });
-    html += '</div>';
+    html += '</div></section>';
 
     /* 부서별 실적 현황 (확인이 필요한 부서를 먼저) */
-    html += '<section id="dept"><div class="sec-head"><div><h2>부서별 실적 현황</h2>' +
-      '<div class="desc">확인 필요 기준: 달성률 60% 미만(주의, 부진) 또는 ' + esc(asOf) + ' 기준 기간 경과율(' + pct(elPct) + ') 미만</div></div></div>';
+    html += '<section id="dept" class="pane" data-pane="dept"><div class="sec-head"><div><h2>부서별 실적 현황</h2>' +
+      '<div class="desc">확인 필요 기준: 달성률 60% 미만(주의, 부진) 또는 ' + esc(asOf) + ' 기준 기간 경과율(' + pct(elPct) + ') 미만</div></div>' +
+      '<span class="status dim"><span class="mark mark-behind"></span>경과율 미달: 60% 이상이지만 기간 경과율보다 낮음</span></div>';
     html += '<div class="dept-summary" role="note">';
     if (weak.length) {
       html += '<b>실적 확인필요 부서</b> ' + weak.map(function (g) {
@@ -152,16 +152,16 @@
     html += '</div></section>';
 
     /* 세부지표: 도넛 → 수치표 */
-    html += '<section id="detail"><div class="sec-head"><div><h2>세부지표 달성 현황</h2>' +
+    html += '<section id="detail" class="pane" data-pane="detail"><div class="sec-head"><div><h2>세부지표 달성 현황</h2>' +
       '<div class="desc">2026 목표 대비 실적. 자료: ' + esc(m.dataBasis) + '</div></div></div>';
     html += '<div class="group-grid">';
     r.indices.forEach(function (ix) {
-      html += '<article class="card group-card"><h3>' + esc(ix.name) + '</h3><div class="mini-row">';
+      html += '<div class="group-card"><h3>' + esc(ix.name) + '</h3><div class="mini-row">';
       ix.items.forEach(function (it) {
         html += '<div class="mini">' + donut({ size: 84, stroke: 14, prog: it.prog, state: it.state, band: it.band, label: it.name, elapsed: elapsed }) +
           '<span class="label">' + esc(it.short) + '</span></div>';
       });
-      html += '</div></article>';
+      html += '</div></div>';
     });
     html += '</div>';
 
@@ -186,7 +186,7 @@
       '<p class="foot-note">계산 방법: 달성률은 2026 실적을 2026 목표로 나눈 값입니다. 혁신지수는 ' + esc(m.definitionBasis) + ' 산출식(실적 ÷ 2027 목표 × 반영비중)으로 계산하고, 평균 달성률은 4개 지수의 달성률을 각각 100%까지만 반영해 평균합니다.</p></div></section>';
 
     /* 유의사항(자동 + 직접 입력) + 일정 */
-    html += '<div class="two-col"><section id="notes" class="card panel"><h2>해석 시 유의사항</h2><ol>';
+    html += '<section id="notes" class="pane two-col" data-pane="notes"><div class="panel flat"><h2>해석 시 유의사항</h2><ol>';
     auto.notes.forEach(function (n) {
       html += '<li><b>' + esc(n.title) + '</b><span>' + esc(n.body) + '</span></li>';
     });
@@ -195,7 +195,7 @@
       html += '<li><b>' + esc(n.title) + '</b><span>' + esc(n.body) + '</span></li>';
     });
     if (!auto.notes.length && !data.notes.length) html += '<li class="dim">현재 특별한 유의사항이 없습니다.</li>';
-    html += '</ol></section><section id="schedule" class="card panel"><h2>측정 기준일과 남은 일정</h2><div>';
+    html += '</ol></div><div id="schedule" class="panel flat"><h2>측정 기준일과 남은 일정</h2><div>';
     var now = new Date();
     var sch = K.scheduleOf(data, r, now);
     sch.open.forEach(function (e) {
@@ -209,10 +209,10 @@
     html += doneList(sch.closed, function (e) {
       return '<span class="date">' + (e.date ? esc(K.dotDate(e.date)) : '—') + '</span><span class="body"><span>' + esc(e.name) + '</span></span>';
     }, '끝난 일정');
-    html += '</div></section></div>';
+    html += '</div></div></section>';
 
     /* 필수확인사항: 자동 점검 + 직접 입력(완료 처리 가능) */
-    html += '<section id="fix" class="fix-wrap"><div class="card panel"><h2>지표 점검</h2><div>';
+    html += '<section id="fix" class="pane fix-wrap" data-pane="fix"><div class="panel flat"><h2>지표 점검</h2><div class="desc">입력된 수치로 자동 점검한 결과입니다.</div><div>';
     auto.checks.forEach(function (c) {
       html += '<div class="list-row"><span class="body"><span><span class="status check-label"><span class="mark mark-' + c.tag + '"></span>' + esc(c.label) + '</span> ' + esc(c.what) + '</span></span>' +
         '<span class="owner">' + esc(c.who) + '</span></div>';
@@ -227,20 +227,21 @@
       else if (K.linkDone(f, data)) fdDone.push(Object.assign({ why: '자동 완료' }, f));
       else fdOpen.push(f);
     });
-    html += '<div class="card panel"><h2>실적 파일 필수확인사항</h2><div class="desc">분기 실적 엑셀 기준</div><div>';
+    html += '<div class="panel flat"><h2>실적 파일 필수확인사항</h2><div class="desc">분기 실적 엑셀 기준</div><div>';
     fdOpen.forEach(function (f) { html += '<div class="list-row"><span>' + esc(f.item) + '</span><span class="owner">' + esc(f.owner) + '</span></div>'; });
     if (!fdOpen.length) html += '<p class="dim">남은 확인사항이 없습니다.</p>';
     html += doneList(fdDone, function (f) { return '<span class="body"><span>' + esc(f.item) + '</span></span><span class="owner">' + esc(f.owner) + '</span>'; });
 
     var docOpen = data.fixes.doc.filter(function (f) { return f && !f.done; });
     var docDone = data.fixes.doc.filter(function (f) { return f && f.done; }).map(function (f) { return Object.assign({ why: '완료' }, f); });
-    html += '</div></div><div class="card panel"><h2>정의서 정정 필요 사항</h2><div class="desc">정의서 산출식 재계산 결과</div><div>';
+    html += '</div></div><div class="panel flat"><h2>정의서 정정 필요 사항</h2><div class="desc">정의서 산출식 재계산 결과</div><div>';
     docOpen.forEach(function (f) { html += '<div class="list-row"><span class="body"><span style="font-weight:500">' + esc(f.item) + '</span><span class="sub">' + esc(f.detail) + '</span></span></div>'; });
     if (!docOpen.length) html += '<p class="dim">남은 정정 사항이 없습니다.</p>';
     html += doneList(docDone, function (f) { return '<span class="body"><span>' + esc(f.item) + '</span><span class="sub">' + esc(f.detail) + '</span></span>'; });
     html += '</div></div></div></section>';
 
     document.getElementById('app').innerHTML = html;
+    showPane();
     var up = m.updatedAt ? new Date(m.updatedAt) : null;
     document.getElementById('updated').textContent = '최종 수정 ' + (up && !isNaN(up) ? K.clockText(up).replace(/:\d\d KST$/, '') : '—') + (m.updatedBy ? ' (' + m.updatedBy + ')' : '');
   }
@@ -255,36 +256,39 @@
       }).join('') + '</details>';
   }
 
-  function banner(html, kind) {
-    var bar = document.createElement('div');
-    bar.className = 'banner ' + (kind || 'banner-ok');
-    bar.innerHTML = html;
-    var app = document.getElementById('app');
-    app.insertBefore(bar, app.firstChild);
+  /* 메뉴(탭): 종합에는 시각화 대시보드만, 나머지는 메뉴를 눌렀을 때 하나씩 보입니다 */
+  var PANES = ['summary', 'dept', 'detail', 'notes', 'fix'];
+  function paneOf(hash) {
+    var h = String(hash || '').replace(/^#/, '');
+    if (h.indexOf('dept-') === 0) return 'dept';
+    if (h === 'schedule') return 'notes';
+    return PANES.indexOf(h) >= 0 ? h : 'summary';
   }
-
-  /* 저장소(API)에 연결하지 못하면 배포 시 함께 올린 기본 자료(data.json)를 읽기 전용으로 표시 */
-  var lastError = '';
-  function loadFallback() {
-    fetch('data.json', { cache: 'no-store' })
-      .then(function (res) { if (!res.ok) throw new Error(res.status); return res.json(); })
-      .then(function (data) {
-        lastStamp = 'fallback';
-        render(data);
-        banner('<b>읽기 전용</b> · 저장소에 연결하지 못해 배포 시점의 기본 자료를 보여 주고 있습니다. 잠시 후 새로고침해 주세요.' +
-          (lastError ? ' <span class="small">(원인: ' + esc(lastError) + ' · 진단: <a href="api/health" target="_blank" rel="noopener">api/health</a>)</span>' : ''), 'banner-error');
-      })
-      .catch(function () {
-        document.getElementById('app').innerHTML = '<div class="banner banner-error">자료를 불러오지 못했습니다. 잠시 후 새로고침해 주세요.</div>';
-      });
+  var shownPane = null;
+  function showPane(fromNav) {
+    var name = paneOf(location.hash);
+    Array.prototype.forEach.call(document.querySelectorAll('#app .pane'), function (el) {
+      el.hidden = el.getAttribute('data-pane') !== name;
+    });
+    Array.prototype.forEach.call(document.querySelectorAll('.nav a[href^="#"]'), function (a) {
+      if (paneOf(a.getAttribute('href')) === name) a.setAttribute('aria-current', 'page'); else a.removeAttribute('aria-current');
+    });
+    if (fromNav) {
+      var target = location.hash && document.getElementById(location.hash.slice(1));
+      if (target && target.id.indexOf('dept-') === 0) target.scrollIntoView({ block: 'start' });
+      else if (shownPane !== name) window.scrollTo(0, 0);
+    }
+    shownPane = name;
   }
+  window.addEventListener('hashchange', function () { showPane(true); });
 
+  var started = false;
   function load() {
-    fetch('api/data', { cache: 'no-store' })
+    KPIAuth.api('api/data')
       .then(function (res) {
         if (!res.ok) {
           return res.json().catch(function () { return {}; }).then(function (b) {
-            throw new Error('HTTP ' + res.status + (b && b.detail ? ' ' + b.detail : b && b.error ? ' ' + b.error : ''));
+            throw new Error('HTTP ' + res.status + (b && b.error ? ' ' + b.error : ''));
           });
         }
         return res.json();
@@ -294,8 +298,9 @@
         if (stamp !== lastStamp) { lastStamp = stamp; render(data); }
       })
       .catch(function (err) {
-        lastError = (err && err.message) || '연결 실패';
-        if (lastStamp === null) loadFallback();
+        if (lastStamp === null) {
+          document.getElementById('app').innerHTML = '<div class="banner banner-error">자료를 불러오지 못했습니다. 잠시 후 새로고침해 주세요. <span class="small">(' + esc((err && err.message) || '연결 실패') + ')</span></div>';
+        }
       });
   }
 
@@ -303,6 +308,10 @@
   document.getElementById('themeToggle').addEventListener('click', K.toggleTheme);
   document.getElementById('year').textContent = new Date().getFullYear();
   K.startClock();
-  load();
-  setInterval(load, 60000);
+  KPIAuth.start(function () {
+    if (started) return;
+    started = true;
+    load();
+    setInterval(load, 60000);
+  });
 })();
