@@ -172,7 +172,7 @@
     ['title', 'badge', 'dataBasis', 'asOfDate'].forEach(function (k) {
       document.getElementById('m-' + k).value = m[k] || '';
     });
-    document.getElementById('m-updatedBy').value = me.admin ? '관리자' : me.name + ' (' + me.dept + ')';
+    document.getElementById('m-updatedBy').value = me.admin ? (me.name === '관리자' ? '관리자' : me.name + ' (관리자)') : me.name + ' (' + me.dept + ')';
     ['title', 'badge', 'dataBasis', 'asOfDate'].forEach(function (k) { document.getElementById('m-' + k).disabled = !me.admin; });
 
     var html = '';
@@ -399,7 +399,7 @@
       var list = res.users || [];
       userDepts = res.departments || [];
       if (!list.length) { box.innerHTML = '<p class="dim">아직 가입한 담당자가 없습니다.</p>'; return; }
-      box.innerHTML = '<div class="table-scroll"><table class="le-table users-table"><thead><tr><th scope="col">인사번호</th><th scope="col">이름</th><th scope="col">부서</th>' +
+      box.innerHTML = '<div class="table-scroll"><table class="le-table users-table"><thead><tr><th scope="col">인사번호</th><th scope="col">이름</th><th scope="col">부서</th><th scope="col">권한</th>' +
         '<th scope="col">가입</th><th scope="col">최근 로그인</th><th scope="col"></th></tr></thead><tbody>' +
         list.map(function (u, i) {
           var opts = userDepts.slice();
@@ -408,6 +408,8 @@
             '<td><input class="cell-input mid" id="u-' + i + '-name" value="' + esc(u.name) + '" aria-label="' + esc(u.id) + ' 이름"></td>' +
             '<td><select class="cell-select" id="u-' + i + '-dept" aria-label="' + esc(u.id) + ' 부서">' +
             opts.map(function (d) { return '<option' + (d === u.dept ? ' selected' : '') + '>' + esc(d) + '</option>'; }).join('') + '</select></td>' +
+            '<td><select class="cell-select" id="u-' + i + '-role" aria-label="' + esc(u.id) + ' 권한"><option value="user"' + (u.admin ? '' : ' selected') + '>담당자 (본인 부서)</option>' +
+            '<option value="admin"' + (u.admin ? ' selected' : '') + '>관리자 (전체)</option></select></td>' +
             '<td class="small dim">' + esc(shortTime(u.createdAt)) + '</td><td class="small dim">' + esc(u.lastLogin ? shortTime(u.lastLogin) : '—') + '</td>' +
             '<td class="users-act"><button type="button" class="btn btn-sm" data-uact="update" data-uid="' + esc(u.id) + '" data-ui="' + i + '">저장</button>' +
             '<button type="button" class="btn btn-sm" data-uact="delete" data-uid="' + esc(u.id) + '" data-ui="' + i + '">삭제 (PIN 초기화)</button></td></tr>';
@@ -423,6 +425,7 @@
     if (act === 'update') {
       body.name = document.getElementById('u-' + i + '-name').value;
       body.dept = document.getElementById('u-' + i + '-dept').value;
+      body.admin = document.getElementById('u-' + i + '-role').value === 'admin';
     }
     b.disabled = true;
     post('api/users', body).then(function (res) {
@@ -439,7 +442,7 @@
   KPIAuth.start(function (user) {
     me = user;
     document.getElementById('roleNote').innerHTML = me.admin
-      ? '<b>관리자</b>로 로그인했습니다. 모든 지표와 기본 정보, 대시보드 문구, 가입자를 고칠 수 있습니다.'
+      ? '<b>' + esc(me.name) + '</b> (관리자)로 로그인했습니다. 모든 지표와 기본 정보, 대시보드 문구, 가입자를 고칠 수 있습니다.'
       : '<b>' + esc(me.name) + '</b> (' + esc(me.dept) + ')로 로그인했습니다. <b>' + esc(me.dept) + '</b> 관리 지표의 현재값·상태·비고만 저장됩니다. 다른 항목은 기획팀(IR센터)에 요청해 주세요.';
     ['metaSec', 'textSec', 'histSec', 'usersSec'].forEach(function (id) { document.getElementById(id).hidden = !me.admin; });
     load().catch(function () { msg('저장소에 연결할 수 없습니다. 잠시 후 새로고침해 주세요.'); });
