@@ -69,13 +69,13 @@
   function build(data) {
     var now = new Date(), a = analyze(data, now), m = a.m, o = a.r.overall;
     var written = K.clockText(now).replace(/:\d\d KST$/, '');
-    var subject = '[' + m.university + ' 혁신지원사업단\] ' + m.title + ' 요약보고';
+    var subject = '[' + m.university + ' 혁신지원사업단] ' + m.title + ' 요약보고';
     var ov = overallSentences(a), acts = actions(a);
     var stateLabel = function (i) { return i.state === 'pending' ? '측정 전' : i.state === 'missing' ? '미입력' : i.band.label; };
     var markOf = function (i) { return '<span class="mark mark-' + (i.state === 'actual' ? i.band.key : i.state) + '"></span>'; };
 
     var h = '';
-    h += '<header class="rp-head"><img src="img/logo.png" alt="계명문화대학교"><div><div class="rp-kicker">' + esc(m.unit) + ' · 자동 요약보고</div>' +
+    h += '<header class="rp-head"><img src="img/logo.png" alt="계명문화대학교"><div><div class="rp-kicker">혁신지원사업단 · 기획팀 / IR센터 · 자동 요약보고</div>' +
       '<h2 id="reportTitle">' + esc(m.title) + '</h2>' +
       '<div class="rp-meta">작성 ' + esc(written) + ' · 실적 ' + esc(m.dataBasis) + ' · 기준 ' + esc(m.definitionBasis) + '</div></div></header>';
 

@@ -1,4 +1,4 @@
-// 계명문화대학교 혁신지원사업단\ 성과관리 — Netlify 서버리스 API
+// 계명문화대학교 혁신지원사업단 성과관리 — Netlify 서버리스 API
 //   GET  /api/data      현재 자료
 //   POST /api/data      자료 저장 (이전 자료는 변경 이력에 자동 보관)
 //   GET  /api/history   변경 이력 목록 (최근 순)

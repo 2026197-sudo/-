@@ -148,9 +148,9 @@
     });
     html += '</div></section></div>';
 
-    /* 확인사항 */
+    /* 필수확인사항 */
     var fx = data.fixes || {};
-    html += '<section id="fix" class="two-col"><div class="card panel"><h2>실적 파일 확인사항 사항</h2><div class="desc">분기 실적 엑셀 기준</div><div>';
+    html += '<section id="fix" class="two-col"><div class="card panel"><h2>실적 파일 필수확인사항</h2><div class="desc">분기 실적 엑셀 기준</div><div>';
     (fx.data || []).forEach(function (f) { html += '<div class="list-row"><span>' + esc(f.item) + '</span><span class="owner">' + esc(f.owner) + '</span></div>'; });
     html += '</div></div><div class="card panel"><h2>정의서 정정 필요 사항</h2><div class="desc">정의서 산출식 재계산 결과</div><div>';
     (fx.doc || []).forEach(function (f) { html += '<div class="list-row"><span class="body"><span style="font-weight:500">' + esc(f.item) + '</span><span class="sub">' + esc(f.detail) + '</span></span></div>'; });
