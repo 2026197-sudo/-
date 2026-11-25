@@ -203,13 +203,23 @@
         else if (/^교육만족도 73점/.test(f.item || '')) f.link = 'f3';
       });
     }
-    if (!(Number(d.meta.schema) >= 4)) applyY1Update(d);
+    // 형식 번호와 상관없이 표시(meta.y1Source)가 없으면 한 번 적용합니다
+    if (d.meta.y1Source !== Y1_SOURCE) {
+      applyY1Update(d);
+      d.meta.y1Source = Y1_SOURCE;
+      // 2025 달성값을 엑셀 현황 기준으로 확정했으므로, 2025 실적에 관한 정의서 정정 사항은 뺍니다
+      d.fixes.doc = d.fixes.doc.filter(function (f) { return !(f && /^학생지원 1차 실적 산출식의 유지율/.test(f.item || '')); });
+      d.fixes.doc.forEach(function (f) {
+        if (f && /^반올림 기준 통일/.test(f.item || '') && f.detail) f.detail = f.detail.replace(/\s*·\s*사회적책무 달성도 120\.1\/120\.2\s*/, '');
+      });
+    }
     d.meta.schema = SCHEMA;
     return d;
   }
 
   /* 2025(1차년도) 달성값: 2026 자율성과지표 현황 엑셀 기준으로 갱신 (한 번만 적용) */
-  var SCHEMA = 4;
+  var SCHEMA = 5;
+  var Y1_SOURCE = '2026 자율성과지표 현황 엑셀';
   var Y1_2025 = {
     items: { f1: 5, f2: 65, f3: 82.3, s1: 595, s2: 91.2, g1: 1240, g2: 927, g3: 0.3, r1: 0.2, r2: 125, r3: 33 },
     indices: { future: 88.0, student: 100.5, glocal: 103.4, social: 100.8 }
