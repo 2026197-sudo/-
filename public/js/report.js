@@ -69,7 +69,7 @@
   function build(data) {
     var now = new Date(), a = analyze(data, now), m = a.m, o = a.r.overall;
     var written = K.clockText(now).replace(/:\d\d KST$/, '');
-    var subject = '[' + m.university + ' AI 사업단] ' + m.title + ' 요약보고';
+    var subject = '[' + m.university + ' 혁신지원사업단\] ' + m.title + ' 요약보고';
     var ov = overallSentences(a), acts = actions(a);
     var stateLabel = function (i) { return i.state === 'pending' ? '측정 전' : i.state === 'missing' ? '미입력' : i.band.label; };
     var markOf = function (i) { return '<span class="mark mark-' + (i.state === 'actual' ? i.band.key : i.state) + '"></span>'; };
