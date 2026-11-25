@@ -333,3 +333,7 @@ textarea.cell-input { resize: vertical; line-height: 1.5; font-family: inherit; 
 .tag-autodone { background: var(--chip-bg); color: var(--chip-ink); border-color: transparent; }
 .btn-excel { color: #0B3591; border-color: #0B3591; }
 .btn-excel:hover { background: #E8EDF8; }
+
+.dept-bar { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 12px; padding: 14px 20px; border-bottom: 1px solid var(--divider); background: var(--surface-2); }
+.dept-label { font-size: 14px; font-weight: 700; color: var(--heading); }
+.dept-select { min-width: 200px; min-height: 44px; font-weight: 600; }

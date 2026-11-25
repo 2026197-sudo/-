@@ -127,9 +127,17 @@ export default async (req) => {
       const body = await readBody(req);
       if (body.error) return json(400, { error: body.error });
       const doc = body.value;
+      // 동시 저장 확인: 화면을 불러온 시점(_base) 이후 다른 사람이 저장했으면 409로 알려 화면에서 합치게 합니다
+      const base = doc && typeof doc === "object" ? doc._base : undefined;
+      if (doc && typeof doc === "object") delete doc._base;
       const err = validate(doc);
       if (err) return json(400, { error: err });
-      const backupId = await archive(store, await readCurrent(store), "저장 전 자료");
+      const current = await readCurrent(store);
+      const curStamp = (current.meta && current.meta.updatedAt) || "";
+      if (base !== undefined && base !== curStamp) {
+        return json(409, { error: "다른 담당자가 먼저 저장했습니다.", updatedAt: curStamp });
+      }
+      const backupId = await archive(store, current, "저장 전 자료");
       doc.meta.updatedAt = kstIso();
       await store.setJSON(KEY_CURRENT, doc);
       return json(200, { ok: true, backup: backupId, updatedAt: doc.meta.updatedAt });

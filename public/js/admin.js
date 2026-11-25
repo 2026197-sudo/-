@@ -5,6 +5,39 @@
   var data = null;
   var STATES = [['actual', '실적'], ['pending', '측정 전'], ['missing', '미입력']];
   var WHO_KEY = 'kmcuKpiEditor';
+  var DEPT_KEY = 'kmcuKpiDept';
+  var orig = null; // 불러온 시점의 자료 (내 변경분 계산용)
+
+  /* ---------- 관리부서 필터 ---------- */
+  function splitDepts(s) { return String(s || '').split(/\s*[,·\/]\s*/).map(function (x) { return x.trim(); }).filter(Boolean); }
+  function fillDeptFilter() {
+    var sel = document.getElementById('deptFilter'), set = {};
+    data.indices.forEach(function (ix) { ix.items.forEach(function (it) { splitDepts(it.dept).forEach(function (d) { set[d] = true; }); }); });
+    var saved = sel.value;
+    if (!saved) { try { saved = localStorage.getItem(DEPT_KEY) || ''; } catch (e) {} }
+    var names = Object.keys(set).sort(function (a, b) { return a.localeCompare(b, 'ko'); });
+    sel.innerHTML = '<option value="">전체 부서</option>' + names.map(function (n) {
+      return '<option value="' + esc(n) + '"' + (n === saved ? ' selected' : '') + '>' + esc(n) + '</option>';
+    }).join('');
+    applyDeptFilter();
+  }
+  function applyDeptFilter() {
+    var dept = document.getElementById('deptFilter').value, shown = 0, total = 0;
+    var rows = document.querySelectorAll('#rows tr');
+    var group = null, groupVisible = false;
+    var flush = function () { if (group) group.hidden = !groupVisible; };
+    Array.prototype.forEach.call(rows, function (tr) {
+      if (tr.classList.contains('group-row')) { flush(); group = tr; groupVisible = false; return; }
+      total++;
+      var ok = !dept || splitDepts(tr.getAttribute('data-dept')).indexOf(dept) >= 0;
+      tr.hidden = !ok;
+      if (ok) { shown++; groupVisible = true; }
+    });
+    flush();
+    document.getElementById('deptHint').textContent = dept
+      ? dept + ' 관리 지표 ' + shown + '개만 보입니다 (전체 ' + total + '개). 저장해도 다른 부서 지표 값은 그대로 유지됩니다.'
+      : '본인 팀을 고르면 그 팀이 관리하는 지표만 보입니다.';
+  }
 
   /* 대시보드 문구 목록 편집기 설정 */
   var LISTS = [
@@ -139,7 +172,7 @@
       html += '<tr class="group-row"><td colspan="6">' + esc(ix.name) + '</td></tr>';
       ix.items.forEach(function (it, j) {
         var id = 'i' + i + '_' + j;
-        html += '<tr><th scope="row" style="background:none;font-weight:500;color:var(--ink);white-space:normal"><label for="' + id + '-cur">' + esc(it.name) + ' <span class="dim small">(' + esc(it.unit) + ')</span></label></th>' +
+        html += '<tr data-dept="' + esc(it.dept) + '"><th scope="row" style="background:none;font-weight:500;color:var(--ink);white-space:normal"><label for="' + id + '-cur">' + esc(it.name) + ' <span class="dim small">(' + esc(it.unit) + ')</span></label></th>' +
           '<td class="r dim">' + K.fmt(it.targets.y2) + '</td>' +
           '<td><input class="cell-input num" id="' + id + '-cur" type="number" step="any" value="' + (it.current === null || it.current === undefined ? '' : esc(it.current)) + '"></td>' +
           '<td><select class="cell-select" id="' + id + '-st" aria-label="' + esc(it.name) + ' 상태">' +
@@ -149,6 +182,7 @@
       });
     });
     document.getElementById('rows').innerHTML = html;
+    fillDeptFilter();
     LISTS.forEach(function (L) { work[L.key] = JSON.parse(JSON.stringify(L.get(data) || [])); });
     renderLists();
     renderAutoPreview(data);
@@ -191,6 +225,38 @@
     return { next: next, bad: bad };
   }
 
+  /* 동시 저장 대비: 불러온 뒤 내가 바꾼 부분만 골라 최신 자료에 합칩니다 */
+  var META_KEYS = ['title', 'badge', 'dataBasis', 'asOfDate'];
+  var ITEM_KEYS = ['current', 'status', 'note', 'dept'];
+  var LIST_PATHS = [['notes'], ['events'], ['fixes', 'data'], ['fixes', 'doc']];
+  function getPath(o, p) { return p.reduce(function (a, k) { return a ? a[k] : undefined; }, o); }
+  function setPath(o, p, v) { var t = o; for (var i = 0; i < p.length - 1; i++) { t[p[i]] = t[p[i]] || {}; t = t[p[i]]; } t[p[p.length - 1]] = v; }
+  function itemMap(d) { var m = {}; d.indices.forEach(function (ix) { ix.items.forEach(function (it) { m[it.id] = it; }); }); return m; }
+  function diff(before, after) {
+    var patch = { meta: {}, items: {}, lists: [] };
+    META_KEYS.forEach(function (k) { if ((before.meta[k] || '') !== (after.meta[k] || '')) patch.meta[k] = after.meta[k]; });
+    var b = itemMap(before), a = itemMap(after);
+    Object.keys(a).forEach(function (id) {
+      ITEM_KEYS.forEach(function (k) {
+        if (!b[id] || JSON.stringify(b[id][k]) !== JSON.stringify(a[id][k])) { (patch.items[id] = patch.items[id] || {})[k] = a[id][k]; }
+      });
+    });
+    LIST_PATHS.forEach(function (p) {
+      if (JSON.stringify(getPath(before, p) || []) !== JSON.stringify(getPath(after, p) || [])) patch.lists.push({ path: p, value: getPath(after, p) });
+    });
+    return patch;
+  }
+  function applyPatch(latest, patch, who) {
+    var next = JSON.parse(JSON.stringify(latest)), m = itemMap(next);
+    Object.keys(patch.meta).forEach(function (k) { next.meta[k] = patch.meta[k]; });
+    Object.keys(patch.items).forEach(function (id) { if (m[id]) Object.assign(m[id], patch.items[id]); });
+    patch.lists.forEach(function (l) { setPath(next, l.path, l.value); });
+    next.meta.updatedBy = who;
+    next.meta.schema = K.SCHEMA;
+    return next;
+  }
+  function isEmptyPatch(p) { return !Object.keys(p.meta).length && !Object.keys(p.items).length && !p.lists.length; }
+
   function post(url, body) {
     return fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })
       .then(function (r) {
@@ -202,7 +268,7 @@
     return fetch('api/data', { cache: 'no-store' }).then(function (r) {
       if (!r.ok) throw new Error();
       return r.json();
-    }).then(function (d) { data = K.normalize(d); fill(); });
+    }).then(function (d) { data = K.normalize(d); orig = JSON.parse(JSON.stringify(data)); fill(); });
   }
 
   function loadHistory() {
@@ -232,9 +298,25 @@
     try { localStorage.setItem(WHO_KEY, c.next.meta.updatedBy); } catch (err) {}
     var btn = e.submitter || document.querySelector('#editor button[type=submit]');
     btn.disabled = true;
-    post('api/data', c.next).then(function (res) {
-      if (!res.ok) { msg('저장하지 못했습니다: ' + (res.body.error || res.status)); return; }
-      msg('저장했습니다. 이전 자료는 변경 이력에 보관했습니다.', true);
+    var patch = diff(orig, c.next), who = c.next.meta.updatedBy;
+    var send = function (doc, base) { return post('api/data', Object.assign({}, doc, { _base: base || '' })); };
+    send(c.next, orig.meta.updatedAt).then(function (res) {
+      if (res.status !== 409) return { res: res, merged: false };
+      // 다른 담당자가 먼저 저장함 → 최신 자료를 받아 내 변경분만 합쳐 다시 저장
+      return fetch('api/data', { cache: 'no-store' }).then(function (r) { return r.json(); }).then(function (latest) {
+        latest = K.normalize(latest);
+        if (isEmptyPatch(patch)) return { res: { ok: true, body: {} }, merged: true, nothing: true };
+        return send(applyPatch(latest, patch, who), latest.meta.updatedAt).then(function (r2) { return { res: r2, merged: true }; });
+      });
+    }).then(function (out) {
+      var res = out.res;
+      if (!res.ok) {
+        msg(res.status === 409 ? '다른 담당자가 동시에 저장하고 있습니다. 잠시 후 다시 저장해 주세요. (입력한 값은 화면에 그대로 있습니다)' : '저장하지 못했습니다: ' + (res.body.error || res.status));
+        return;
+      }
+      msg(out.nothing ? '바뀐 내용이 없어 저장하지 않았습니다. 최신 자료를 불러왔습니다.'
+        : out.merged ? '저장했습니다. 그사이 다른 담당자가 저장한 내용과 합쳐서 저장했습니다(내가 바꾼 항목만 반영).'
+        : '저장했습니다. 이전 자료는 변경 이력에 보관했습니다.', true);
       return Promise.all([load(), loadHistory()]);
     }).catch(function () { msg('저장소에 연결할 수 없습니다. 잠시 후 다시 시도해 주세요.'); })
       .then(function () { btn.disabled = false; });
@@ -254,6 +336,10 @@
   });
 
   document.getElementById('histReload').addEventListener('click', loadHistory);
+  document.getElementById('deptFilter').addEventListener('change', function () {
+    try { localStorage.setItem(DEPT_KEY, this.value); } catch (e) {}
+    applyDeptFilter();
+  });
 
   document.getElementById('textEditors').addEventListener('click', function (e) {
     var add = e.target.closest('[data-add]'), del = e.target.closest('[data-del]');
