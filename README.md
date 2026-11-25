@@ -40,6 +40,20 @@ GitHub 저장소에 올리고 Netlify에 연결하면 자동으로 배포됩니�
 - `https://주소/admin.html` → 실적 입력 (로그인 필요)
 - 실적을 한 번 저장해 보고, 다른 PC·휴대폰에서 대시보드에 반영되는지 확인하세요(최대 1분).
 
+## 1-1. Vercel에도 함께 배포하기 (처음 한 번)
+
+같은 GitHub 저장소를 Vercel에도 연결하면, main에 올라갈 때마다 Netlify와 Vercel이 **둘 다 자동으로** 다시 배포됩니다.
+
+1. https://vercel.com → **Continue with GitHub**로 로그인 (무료 Hobby 플랜)
+2. **Add New… → Project** → `2026197-sudo/-` 저장소 **Import**
+3. 설정은 `vercel.json`이 채우니 그대로 **Deploy** (Framework Preset: Other, Output Directory: `public`)
+4. 배포가 끝나면 프로젝트 화면의 **Storage → Create Database → Upstash for Redis**(무료) → 만든 뒤 **Connect Project**로 이 프로젝트에 연결
+5. **Deployments → 맨 위 배포의 ⋯ → Redeploy** (저장소 연결 정보를 읽도록 한 번 다시 배포)
+6. `https://주소/api/health`를 열어 `"platform":"vercel"`, `"store":"connected"`가 보이면 정상입니다.
+
+- Vercel 사이트의 자료·가입자 명단은 **Netlify와 따로** 저장됩니다. 한쪽에서 입력한 실적은 다른 쪽에 나타나지 않으니, 실제 입력은 한 곳으로 정해 안내하세요.
+- Vercel 사이트도 **가장 먼저 가입한 사람이 관리자**가 됩니다. 배포 직후 관리자가 먼저 가입하세요.
+
 ## 2. 쓰는 법
 
 | 기능 | 방법 |
@@ -68,7 +82,7 @@ GitHub 저장소에 올리고 Netlify에 연결하면 자동으로 배포됩니�
 
 - 웹에서 입력한 실적은 **Netlify Blobs**(이 사이트 전용 저장소)에 저장됩니다. Netlify 무료 플랜에 포함되어 있고 따로 설정할 것이 없습니다.
 - 가입자 명단(인사번호·이름·부서·PIN 해시)도 같은 저장소에 보관됩니다.
-- `netlify/lib/seed.mjs`는 **처음 배포했을 때의 기본 자료**입니다. 웹에서 한 번이라도 저장한 뒤에는 저장소의 자료가 우선입니다.
+- `server/seed.mjs`는 **처음 배포했을 때의 기본 자료**입니다. 웹에서 한 번이라도 저장한 뒤에는 저장소의 자료가 우선입니다.
 - 실적 자료는 로그인해야만 받을 수 있습니다(공개 `data.json` 없음).
 - 정기 보관이 필요하면 실적 입력 화면의 **현재 자료 내려받기(JSON)**로 분기마다 파일을 받아 두세요.
 
@@ -79,7 +93,7 @@ GitHub 저장소에서 파일을 열어 연필(✏️) 아이콘으로 수정 �
 | 고칠 내용 | 위치 |
 |---|---|
 | 유의사항·일정·필수확인사항·정의서 정정 사항 문구 | 실적 입력 화면의 **대시보드 문구 관리**에서 바로 고칩니다(코드 수정 불필요). |
-| 색상 구간(30·60·90%) | 첫 배포 **전**에 `netlify/lib/seed.mjs`의 `meta.thresholds` 수정 |
+| 색상 구간(30·60·90%) | 첫 배포 **전**에 `server/seed.mjs`의 `meta.thresholds` 수정 |
 | 디자인 | `public/css/style.css` |
 | 로고 | `public/img/logo.png` (같은 이름으로 교체) |
 
@@ -104,8 +118,12 @@ kmcu-kpi-netlify/
 ├─ netlify.toml              Netlify 배포 설정 (자동 인식)
 ├─ package.json              서버리스 함수가 쓰는 패키지(@netlify/blobs) — Netlify가 자동 설치
 ├─ netlify/
-│  ├─ functions/api.mjs      로그인·가입, 자료 조회·저장, 변경 이력, 가입자 관리 API (/api/*)
-│  └─ lib/seed.mjs           첫 배포용 기본 자료
+│  └─ functions/api.mjs      Netlify용 연결 (Netlify Blobs 저장소)
+├─ api/index.mjs             Vercel용 연결 (Upstash Redis 저장소)
+├─ vercel.json               Vercel 배포 설정 (자동 인식)
+├─ server/
+│  ├─ core.mjs               로그인·가입, 자료 조회·저장, 변경 이력, 가입자 관리 API (/api/*) — 두 곳 공용
+│  └─ seed.mjs               첫 배포용 기본 자료
 └─ public/                   화면 (index.html, admin.html, css, js, img)
 ```
 
