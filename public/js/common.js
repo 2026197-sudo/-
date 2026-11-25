@@ -203,8 +203,32 @@
         else if (/^교육만족도 73점/.test(f.item || '')) f.link = 'f3';
       });
     }
-    d.meta.schema = 3;
+    if (!(Number(d.meta.schema) >= 4)) applyY1Update(d);
+    d.meta.schema = SCHEMA;
     return d;
+  }
+
+  /* 2025(1차년도) 달성값: 2026 자율성과지표 현황 엑셀 기준으로 갱신 (한 번만 적용) */
+  var SCHEMA = 4;
+  var Y1_2025 = {
+    items: { f1: 5, f2: 65, f3: 82.3, s1: 595, s2: 91.2, g1: 1240, g2: 927, g3: 0.3, r1: 0.2, r2: 125, r3: 33 },
+    indices: { future: 88.0, student: 100.5, glocal: 103.4, social: 100.8 }
+  };
+  function applyY1Update(d) {
+    var rates = [];
+    (d.indices || []).forEach(function (ix) {
+      (ix.items || []).forEach(function (it) {
+        if (Object.prototype.hasOwnProperty.call(Y1_2025.items, it.id)) it.y1Actual = Y1_2025.items[it.id];
+      });
+      var a = Y1_2025.indices[ix.id];
+      if (a !== undefined) {
+        ix.y1 = ix.y1 || {};
+        ix.y1.actual = a;
+        if (num(ix.y1.target)) ix.y1.rate = Math.round(a / ix.y1.target * 1000) / 10;
+      }
+      if (ix.y1 && num(ix.y1.rate) !== null) rates.push(Number(ix.y1.rate));
+    });
+    if (rates.length) d.meta.y1AvgRate = Math.round(rates.reduce(function (x, y) { return x + y; }, 0) / rates.length * 10) / 10;
   }
 
   /* 지표 연결: 항목에 연결한 지표가 '실적'으로 입력되면 자동 완료 */
@@ -359,6 +383,6 @@
     clockText: clockText, dotDate: dotDate, elapsedRatio: elapsedRatio, daysUntil: daysUntil,
     initTheme: initTheme, toggleTheme: toggleTheme, startClock: startClock,
     normalize: normalize, insights: insights, josa: josa,
-    linkDone: linkDone, findItem: findItem, scheduleOf: scheduleOf, quarterOf: quarterOf
+    linkDone: linkDone, findItem: findItem, scheduleOf: scheduleOf, quarterOf: quarterOf, SCHEMA: SCHEMA
   };
 })(typeof window !== 'undefined' ? window : globalThis);
