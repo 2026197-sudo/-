@@ -2,6 +2,7 @@
 (function () {
   'use strict';
   var KEY = 'kmcuKpiSession';
+  var ID_KEY = 'kmcuKpiLastId'; // 이 기기에서 마지막으로 로그인한 인사번호
   var esc = function (s) {
     return String(s === null || s === undefined ? '' : s).replace(/[&<>"']/g, function (c) {
       return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
@@ -78,8 +79,9 @@
       '<form id="loginForm" class="gate-form" autocomplete="on">' +
       '<label class="field">인사번호<input id="lgId" name="username" inputmode="numeric" autocomplete="username" required maxlength="12"></label>' +
       '<label class="field">PIN (숫자 4~6자리)<input id="lgPin" name="password" type="password" inputmode="numeric" autocomplete="current-password" required maxlength="6" pattern="[0-9]{4,6}"></label>' +
+      '<label class="check"><input type="checkbox" id="lgKeep" checked> 이 기기에서 로그인 유지 (30일)</label>' +
       '<button type="submit" class="btn btn-primary">로그인</button>' +
-      '<p class="gate-help">PIN을 잊었으면 기획팀(IR센터)에 초기화를 요청한 뒤 다시 가입하세요.</p>' +
+      '<p class="gate-help">이미 가입했다면 다시 가입하지 마세요. PIN을 잊었으면 기획팀(IR센터)에 <b>PIN 초기화</b>를 요청한 뒤, 이 화면에서 새 PIN을 입력해 로그인하면 됩니다.</p>' +
       '</form>' +
       '<form id="signupForm" class="gate-form" hidden autocomplete="off">' +
       '<label class="field">인사번호<input id="sgId" inputmode="numeric" required maxlength="12"></label>' +
@@ -88,7 +90,8 @@
       '<div class="gate-row">' +
       '<label class="field">PIN 정하기 (숫자 4~6자리)<input id="sgPin" type="password" inputmode="numeric" autocomplete="new-password" required maxlength="6" pattern="[0-9]{4,6}"></label>' +
       '<label class="field">PIN 다시 입력<input id="sgPin2" type="password" inputmode="numeric" autocomplete="new-password" required maxlength="6" pattern="[0-9]{4,6}"></label></div>' +
-      '<p class="gate-help">학교 포털 비밀번호는 쓰지 마세요. 가입하면 바로 쓸 수 있고, 실적은 선택한 부서의 지표만 입력할 수 있습니다.</p>' +
+      '<label class="check"><input type="checkbox" id="sgKeep" checked> 이 기기에서 로그인 유지 (30일)</label>' +
+      '<p class="gate-help">가입은 처음 한 번만 합니다. 학교 포털 비밀번호는 쓰지 마세요. 가입하면 바로 쓸 수 있고, 실적은 선택한 부서의 지표만 입력할 수 있습니다. 공용 PC라면 로그인 유지를 해제하세요.</p>' +
       '<button type="submit" class="btn btn-primary">가입하고 시작하기</button>' +
       '</form></div>';
     var mainEl = document.querySelector('main');
@@ -120,6 +123,8 @@
       btn.disabled = false;
       if (!res.ok) { say(res.body.error || '처리하지 못했습니다 (' + res.status + ').'); return; }
       save({ token: res.body.token, user: res.body.user });
+      try { localStorage.setItem(ID_KEY, res.body.user.id); } catch (e) {}
+      if (res.body.pinSet) window.alert('새 PIN이 저장되었습니다. 다음부터 이 PIN으로 로그인하세요.');
       gate.remove();
       document.body.classList.remove('locked');
       userChip(res.body.user);
@@ -129,7 +134,7 @@
       e.preventDefault();
       var btn = e.submitter || this.querySelector('button[type=submit]');
       btn.disabled = true; say('');
-      publicPost('api/auth/login', { id: document.getElementById('lgId').value, pin: document.getElementById('lgPin').value })
+      publicPost('api/auth/login', { id: document.getElementById('lgId').value, pin: document.getElementById('lgPin').value, remember: document.getElementById('lgKeep').checked })
         .then(function (res) { done(res, btn); })
         .catch(function () { btn.disabled = false; say('서버에 연결할 수 없습니다. 잠시 후 다시 시도해 주세요.'); });
     });
@@ -141,11 +146,14 @@
       btn.disabled = true; say('');
       publicPost('api/auth/signup', {
         id: document.getElementById('sgId').value, name: document.getElementById('sgName').value,
-        dept: document.getElementById('sgDept').value, pin: pin
+        dept: document.getElementById('sgDept').value, pin: pin, remember: document.getElementById('sgKeep').checked
       }).then(function (res) { done(res, btn); })
         .catch(function () { btn.disabled = false; say('서버에 연결할 수 없습니다. 잠시 후 다시 시도해 주세요.'); });
     });
-    document.getElementById('lgId').focus();
+    var lastId = '';
+    try { lastId = localStorage.getItem(ID_KEY) || ''; } catch (e) {}
+    if (lastId) { document.getElementById('lgId').value = lastId; document.getElementById('lgPin').focus(); }
+    else document.getElementById('lgId').focus();
   }
 
   /* 페이지 시작: 로그인되어 있으면 바로, 아니면 로그인 화면을 거쳐 onReady(user) */

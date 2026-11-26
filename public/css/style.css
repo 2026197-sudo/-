@@ -423,3 +423,7 @@ body.locked #excelBtn, body.locked #reportBtn { display: none !important; }
   .gate-row { grid-template-columns: 1fr; }
   .group-card:nth-child(2) { border-top: 1px solid var(--divider); }
 }
+
+.gate-form .check { display: flex; align-items: center; gap: 8px; font-size: 14px; color: var(--muted); cursor: pointer; }
+.gate-form .check input { width: 18px; height: 18px; accent-color: var(--brand-blue); }
+.pin-reset { color: var(--warn-ink, #8a5a00); font-weight: 600; }
