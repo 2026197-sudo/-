@@ -33,7 +33,7 @@ const KEY_SECRET = "auth-secret";
 const MAX_BODY = 1024 * 1024; // 1MB
 const KEEP_HISTORY = 100;
 const TOKEN_HOURS = 12;          // 기본 로그인 유지 시간
-const REMEMBER_DAYS = 30;        // '이 기기에서 로그인 유지'를 고르면
+const REMEMBER_DAYS = 3650;      // '이 기기에서 로그인 유지'를 고르면 로그아웃할 때까지 유지 (PIN 초기화·삭제 시 자동 해제)
 const LOGIN_LIMIT = 10;           // 15분 동안 실패 허용 횟수
 const LOGIN_WINDOW = 15 * 60e3;
 const SIGNUP_LIMIT = 5;           // 1시간 동안 같은 곳에서 가입 허용 횟수
@@ -203,11 +203,15 @@ async function currentUser(req, store) {
   if (!p) return null;
   if (p.env) return admins().some((a) => a.id === p.id) ? { id: p.id, name: "관리자", dept: "", admin: true } : null;
   const u = (await readUsers(store)).find((x) => x.id === p.id);
-  return u ? publicUser(u) : null;
+  if (!u || !u.pinHash) return null;
+  if (p.v !== undefined && p.v !== pinVer(u)) return null;
+  return publicUser(u);
 }
+// PIN이 바뀌거나 초기화되면 이전 로그인은 모두 풀리도록 토큰에 PIN 버전을 넣음
+function pinVer(user) { return user.env ? "" : String(user.salt || "").slice(0, 8); }
 async function issue(store, user, remember) {
   const ms = remember ? REMEMBER_DAYS * 24 * 3600e3 : TOKEN_HOURS * 3600e3;
-  return sign({ id: user.id, env: !!user.env, exp: Date.now() + ms }, await secretOf(store));
+  return sign({ id: user.id, env: !!user.env, v: pinVer(user), exp: Date.now() + ms }, await secretOf(store));
 }
 
 /* ---------- 담당자 저장: 본인 부서 지표만 반영 ---------- */
