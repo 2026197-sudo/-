@@ -410,9 +410,10 @@
             opts.map(function (d) { return '<option' + (d === u.dept ? ' selected' : '') + '>' + esc(d) + '</option>'; }).join('') + '</select></td>' +
             '<td><select class="cell-select" id="u-' + i + '-role" aria-label="' + esc(u.id) + ' 권한"><option value="user"' + (u.admin ? '' : ' selected') + '>담당자 (본인 부서)</option>' +
             '<option value="admin"' + (u.admin ? ' selected' : '') + '>관리자 (전체)</option></select></td>' +
-            '<td class="small dim">' + esc(shortTime(u.createdAt)) + '</td><td class="small dim">' + esc(u.lastLogin ? shortTime(u.lastLogin) : '—') + '</td>' +
+            '<td class="small dim">' + esc(shortTime(u.createdAt)) + '</td><td class="small dim">' + (u.pinReset ? '<b class="pin-reset">PIN 초기화됨 (새 PIN 대기)</b>' : esc(u.lastLogin ? shortTime(u.lastLogin) : '—')) + '</td>' +
             '<td class="users-act"><button type="button" class="btn btn-sm" data-uact="update" data-uid="' + esc(u.id) + '" data-ui="' + i + '">저장</button>' +
-            '<button type="button" class="btn btn-sm" data-uact="delete" data-uid="' + esc(u.id) + '" data-ui="' + i + '">삭제 (PIN 초기화)</button></td></tr>';
+            '<button type="button" class="btn btn-sm" data-uact="resetPin" data-uid="' + esc(u.id) + '" data-ui="' + i + '">PIN 초기화</button>' +
+            '<button type="button" class="btn btn-sm" data-uact="delete" data-uid="' + esc(u.id) + '" data-ui="' + i + '">삭제</button></td></tr>';
         }).join('') + '</tbody></table></div>';
     }).catch(function () { box.innerHTML = '<p class="dim">가입자 목록을 불러오지 못했습니다.</p>'; });
   }
@@ -420,7 +421,8 @@
     var b = e.target.closest('[data-uact]');
     if (!b) return;
     var act = b.getAttribute('data-uact'), id = b.getAttribute('data-uid'), i = b.getAttribute('data-ui');
-    if (act === 'delete' && !window.confirm(id + ' 가입 정보를 삭제할까요?\n삭제하면 이 인사번호로 다시 가입해 PIN을 새로 정할 수 있습니다.')) return;
+    if (act === 'delete' && !window.confirm(id + ' 가입 정보를 완전히 삭제할까요?\nPIN만 잊은 경우에는 삭제 대신 [PIN 초기화]를 쓰세요.')) return;
+    if (act === 'resetPin' && !window.confirm(id + ' PIN을 초기화할까요?\n가입 정보는 그대로 두고, 본인이 로그인 화면에서 새 PIN을 입력하면 그 PIN으로 바뀝니다.')) return;
     var body = { action: act, id: id };
     if (act === 'update') {
       body.name = document.getElementById('u-' + i + '-name').value;
@@ -430,7 +432,7 @@
     b.disabled = true;
     post('api/users', body).then(function (res) {
       if (!res.ok) { msg('처리하지 못했습니다: ' + (res.body.error || res.status)); b.disabled = false; return; }
-      msg(act === 'delete' ? id + ' 가입 정보를 삭제했습니다.' : id + ' 정보를 고쳤습니다.', true);
+      msg(act === 'delete' ? id + ' 가입 정보를 삭제했습니다.' : act === 'resetPin' ? id + ' PIN을 초기화했습니다. 본인에게 로그인 화면에서 새 PIN을 입력하라고 안내해 주세요.' : id + ' 정보를 고쳤습니다.', true);
       return loadUsers();
     }).catch(function () { msg('저장소에 연결할 수 없습니다.'); b.disabled = false; });
   });

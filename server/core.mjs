@@ -32,7 +32,8 @@ const KEY_USERS = "users";
 const KEY_SECRET = "auth-secret";
 const MAX_BODY = 1024 * 1024; // 1MB
 const KEEP_HISTORY = 100;
-const TOKEN_HOURS = 12;
+const TOKEN_HOURS = 12;          // 기본 로그인 유지 시간
+const REMEMBER_DAYS = 30;        // '이 기기에서 로그인 유지'를 고르면
 const LOGIN_LIMIT = 10;           // 15분 동안 실패 허용 횟수
 const LOGIN_WINDOW = 15 * 60e3;
 const SIGNUP_LIMIT = 5;           // 1시간 동안 같은 곳에서 가입 허용 횟수
@@ -204,8 +205,9 @@ async function currentUser(req, store) {
   const u = (await readUsers(store)).find((x) => x.id === p.id);
   return u ? publicUser(u) : null;
 }
-async function issue(store, user) {
-  return sign({ id: user.id, env: !!user.env, exp: Date.now() + TOKEN_HOURS * 3600e3 }, await secretOf(store));
+async function issue(store, user, remember) {
+  const ms = remember ? REMEMBER_DAYS * 24 * 3600e3 : TOKEN_HOURS * 3600e3;
+  return sign({ id: user.id, env: !!user.env, exp: Date.now() + ms }, await secretOf(store));
 }
 
 /* ---------- 담당자 저장: 본인 부서 지표만 반영 ---------- */
@@ -264,14 +266,19 @@ export async function handle(req, { store, ip, path: forcedPath, platform }) {
       if (!PIN_RE.test(pin)) return json(400, { error: "PIN은 숫자 4~6자리로 정해 주세요." });
       if (admins().some((a) => a.id === id)) return json(409, { error: "이 인사번호로는 가입할 수 없습니다. 관리자에게 문의해 주세요." });
       const users = await readUsers(store);
-      if (users.some((u) => u.id === id)) return json(409, { error: "이미 가입된 인사번호입니다. PIN을 잊었다면 관리자에게 초기화를 요청해 주세요." });
+      const existing = users.find((u) => u.id === id);
+      if (existing) {
+        return json(409, { error: existing.pinHash
+          ? "이미 가입된 인사번호입니다. 다시 가입하지 말고 로그인해 주세요. PIN을 잊었다면 관리자에게 PIN 초기화를 요청하세요."
+          : "이미 가입된 인사번호이고 PIN이 초기화되어 있습니다. 로그인 화면에서 새 PIN을 입력해 로그인하세요." });
+      }
       await bump(store, ipKey, SIGNUP_WINDOW);
       const salt = randomBytes(16).toString("hex");
       const user = { id, name, dept, salt, pinHash: hashPin(pin, salt), createdAt: kstIso() };
       users.push(user);
       await store.setJSON(KEY_USERS, users);
       const saved = (await readUsers(store)).find((x) => x.id === id) || user; // 첫 가입자는 여기서 관리자가 됨
-      return json(200, { ok: true, token: await issue(store, saved), user: publicUser(saved) });
+      return json(200, { ok: true, token: await issue(store, saved, !!body.value.remember), user: publicUser(saved) });
     }
 
     if (path === "/api/auth/login" && req.method === "POST") {
@@ -285,14 +292,27 @@ export async function handle(req, { store, ip, path: forcedPath, platform }) {
       const admin = admins().find((a) => a.id === id);
       if (admin && safeEqual(admin.pin, pin)) {
         const user = { id, name: "관리자", dept: "", admin: true, env: true };
-        return json(200, { ok: true, token: await issue(store, user), user: publicUser(user) });
+        return json(200, { ok: true, token: await issue(store, user, !!body.value.remember), user: publicUser(user) });
       }
+      const remember = !!body.value.remember;
       const u = !admin && (await readUsers(store)).find((x) => x.id === id);
+      // 관리자가 PIN을 초기화한 계정: 이번에 입력한 PIN을 새 PIN으로 정하고 로그인 (가입 정보는 그대로)
+      if (u && !u.pinHash) {
+        if (!PIN_RE.test(pin)) return json(400, { error: "PIN이 초기화된 계정입니다. 새로 쓸 PIN을 숫자 4~6자리로 입력해 주세요." });
+        const users = await readUsers(store);
+        const me = users.find((x) => x.id === id);
+        me.salt = randomBytes(16).toString("hex");
+        me.pinHash = hashPin(pin, me.salt);
+        me.pinSetAt = kstIso();
+        me.lastLogin = kstIso();
+        await store.setJSON(KEY_USERS, users);
+        return json(200, { ok: true, pinSet: true, token: await issue(store, me, remember), user: publicUser(me) });
+      }
       if (u && safeEqual(u.pinHash, hashPin(pin, u.salt))) {
         const users = await readUsers(store);
         const me = users.find((x) => x.id === id);
         if (me) { me.lastLogin = kstIso(); await store.setJSON(KEY_USERS, users); }
-        return json(200, { ok: true, token: await issue(store, me || u), user: publicUser(me || u) });
+        return json(200, { ok: true, token: await issue(store, me || u, remember), user: publicUser(me || u) });
       }
       await bump(store, ipKey, LOGIN_WINDOW);
       await bump(store, idKey, LOGIN_WINDOW);
@@ -366,7 +386,7 @@ export async function handle(req, { store, ip, path: forcedPath, platform }) {
     }
 
     if (path === "/api/users" && req.method === "GET") {
-      const users = (await readUsers(store)).map((u) => ({ id: u.id, name: u.name, dept: u.dept, admin: !!u.admin, createdAt: u.createdAt || null, lastLogin: u.lastLogin || null }));
+      const users = (await readUsers(store)).map((u) => ({ id: u.id, name: u.name, dept: u.dept, admin: !!u.admin, pinReset: !u.pinHash, createdAt: u.createdAt || null, lastLogin: u.lastLogin || null }));
       return json(200, { users, departments: departmentsOf(await readCurrent(store)) });
     }
 
@@ -379,7 +399,11 @@ export async function handle(req, { store, ip, path: forcedPath, platform }) {
       const i = users.findIndex((u) => u.id === id);
       if (i < 0) return json(404, { error: "가입자를 찾을 수 없습니다." });
       const lastAdmin = users[i].admin && users.filter((u) => u.admin).length === 1 && admins().length === 0;
-      if (action === "delete") {
+      if (action === "resetPin") {
+        users[i].pinHash = null;
+        users[i].salt = null;
+        users[i].pinResetAt = kstIso();
+      } else if (action === "delete") {
         if (lastAdmin) return json(400, { error: "마지막 관리자는 삭제할 수 없습니다. 다른 가입자에게 관리자 권한을 먼저 주세요." });
         users.splice(i, 1);
       } else if (action === "update") {
