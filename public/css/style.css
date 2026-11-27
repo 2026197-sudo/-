@@ -713,3 +713,52 @@ table.sub-table { min-width: 760px; font-size: 13px; border: 1px solid var(--div
 .sub-table thead th { border-bottom: 1px solid var(--border); }
 .sub-table tbody tr:nth-child(even) > * { background: var(--surface-2); }
 .sub-table tfoot > tr > * { border-top: 2px solid var(--heading) !important; }
+
+/* ===== 통일: 모든 묶음은 같은 상자(box) — 흰 바탕, 1px 테두리, 머리줄 ===== */
+.box { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); min-width: 0; }
+.box-head { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 4px 16px; padding: 14px 20px 12px; border-bottom: 1px solid var(--divider); }
+.box-head h3 { margin: 0; font-size: 16px; font-weight: 700; color: var(--heading); }
+.box-head .desc { font-size: 12.5px; color: var(--subtle); }
+.box-link { font-size: 13px; font-weight: 600; color: var(--chip-ink); text-decoration: none; }
+.box-link:hover { text-decoration: underline; }
+.box-body { padding: 6px 20px 14px; }
+.box .index-row { border: none; border-radius: 0 0 var(--radius) var(--radius); background: none; }
+.input-status { margin-bottom: 18px; }
+.input-status .box-head { padding: 14px 18px 12px; }
+
+/* 페이지 머리: 모든 탭 같은 크기 */
+.sec-head { margin-bottom: 4px; }
+.sec-head h2 { font-size: 22px; letter-spacing: -0.01em; }
+.pane > .sec-head + * { margin-top: 0; }
+
+/* 세부지표 묶음 머리도 같은 머리줄 */
+.ix-head { border-bottom: 1px solid var(--divider); padding: 14px 20px 12px; }
+.ix-head h3 { font-size: 16px; }
+
+/* 확인사항·일정: 상자 안 목록 */
+.notes-cols { gap: 18px; align-items: start; }
+.box-body .list-row:first-child { border-top: none; }
+.box-body .alarm { margin-top: 10px; }
+.box-body .sub-head { margin-top: 18px; }
+#notes.pane { gap: 18px; }
+
+/* 종합 2단 */
+.dash-two { display: grid; grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr); gap: 18px; align-items: start; }
+.bars-group { margin: 12px 0 4px; font-size: 12px; font-weight: 700; color: var(--subtle); }
+.bars .bars-group:first-child { margin-top: 8px; }
+.bar-row { display: grid; grid-template-columns: 150px 1fr 64px; align-items: center; gap: 12px; padding: 5px 0; }
+.bar-name { font-size: 13.5px; color: var(--ink); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.bar-row .kpi-bar { height: 8px; flex: none; }
+.bar-val { text-align: right; font-weight: 700; font-size: 14px; font-variant-numeric: tabular-nums; }
+.dept-line { display: grid; grid-template-columns: 14px 1fr auto auto; align-items: baseline; gap: 10px; padding: 9px 0; border-top: 1px solid var(--divider); font-size: 13.5px; }
+.dept-line:first-child { border-top: none; }
+.dl-name { font-weight: 600; color: var(--heading); }
+.dl-name small { font-weight: 400; color: var(--subtle); margin-left: 4px; font-size: 12px; }
+.dl-state { font-weight: 600; color: var(--muted); }
+.dl-in { font-size: 12.5px; padding-left: 10px; border-left: 1px solid var(--divider); color: var(--subtle); white-space: nowrap; }
+.dl-in.in-done { color: var(--st-green); font-weight: 600; }
+.dl-in.in-none { color: var(--st-red); }
+@media (max-width: 900px) {
+  .dash-two { grid-template-columns: 1fr; }
+  .bar-row { grid-template-columns: 110px 1fr 56px; }
+}

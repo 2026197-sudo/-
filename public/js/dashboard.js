@@ -80,6 +80,7 @@
 
     var now = new Date();
     var alarm = K.inputAlarm(data, now);
+    var ist = K.inputStatus(data, r, now);
     var o = r.overall;
     var elPct = elapsed === null ? null : elapsed * 100;
     var depts = K.deptSummary(r, elapsed);
@@ -109,7 +110,7 @@
       (prov.length ? '<p class="hero-warn">평균 달성률은 4개 지수를 각각 100%까지만 반영한 값이며, ' + esc(prov.join(', ')) + ' 지표가 포함된 잠정치입니다.</p>' : '');
 
     /* 혁신지수: 한 판에 4칸 */
-    html += '<div class="index-row">';
+    html += '<div class="box"><div class="box-head"><h3>혁신지수별 달성률</h3><span class="desc">2026 목표 대비 · 지수는 2027 목표 기준 산출</span></div><div class="index-row">';
     r.indices.forEach(function (ix) {
       var flags = [];
       ix.items.forEach(function (it) {
@@ -124,7 +125,31 @@
         (flags.length ? '<p class="flag">' + esc(flags.join(', ')) + '</p>' : '') +
         '</article>';
     });
-    html += '</div>';
+    html += '</div></div>';
+
+    /* 종합 2단: 세부지표 달성률 막대 + 부서별 현황 */
+    html += '<div class="dash-two"><div class="box"><div class="box-head"><h3>세부지표 달성률</h3><a class="box-link" href="#detail">세부지표 보기</a></div><div class="box-body bars">';
+    r.indices.forEach(function (ix) {
+      html += '<p class="bars-group">' + esc(ix.name) + '</p>';
+      ix.items.forEach(function (it) {
+        var w = it.prog === null ? 0 : Math.min(it.prog, 100);
+        var col = it.state === 'actual' && it.band ? 'var(--st-' + it.band.key + ')' : 'var(--none)';
+        html += '<div class="bar-row"><span class="bar-name">' + esc(it.short || it.name) + '</span>' +
+          '<span class="kpi-bar"><i style="width:' + w.toFixed(1) + '%;background:' + col + '"></i>' + (elPct !== null ? '<em style="left:' + Math.min(elPct, 100).toFixed(1) + '%"></em>' : '') + '</span>' +
+          '<span class="bar-val" style="color:' + (it.state === 'actual' ? col : 'var(--subtle)') + '">' + (it.prog === null ? esc(statusLabel(it.state)) : pct(it.prog)) + '</span></div>';
+      });
+    });
+    html += '</div></div>';
+    html += '<div class="box"><div class="box-head"><h3>부서별 현황</h3><a class="box-link" href="#dept">부서별 현황 보기</a></div><div class="box-body">';
+    var inMap = {};
+    if (ist) ist.list.forEach(function (g) { inMap[g.dept] = g; });
+    depts.slice().sort(function (a, b) { return b.items.length - a.items.length || a.dept.localeCompare(b.dept, 'ko'); }).forEach(function (g) {
+      var ig = inMap[g.dept];
+      html += '<div class="dept-line"><span class="status">' + (g.label === '측정 전' ? '<span class="mark mark-pending"></span>' : g.level === 'good' ? '<span class="mark mark-green"></span>' : '<span class="mark mark-' + g.level + '"></span>') + '</span>' +
+        '<span class="dl-name">' + esc(g.dept) + ' <small>' + g.items.length + '개 지표</small></span><span class="dl-state">' + esc(g.label) + '</span>' +
+        (ig ? '<span class="dl-in in-' + ig.level + '">' + (ist.q + '분기 ') + (ig.level === 'done' ? '입력 완료' : ig.level === 'part' ? '일부 입력' : '미입력') + ' ' + ig.done + '/' + ig.items.length + '</span>' : '<span></span>') + '</div>';
+    });
+    html += '</div></div></div>';
 
     /* 범례 */
     html += '<p class="legend" role="note">' +
@@ -156,10 +181,9 @@
     html += '</div>';
 
     /* 부서별 실적 입력 현황 */
-    var ist = K.inputStatus(data, r, now);
     if (ist) {
       var doneN = ist.list.filter(function (g) { return g.level === 'done'; }).length;
-      html += '<div class="input-status"><div class="input-head"><h3>' + ist.q + '분기(' + ist.m1 + '~' + ist.m3 + '월) 실적 입력 현황</h3>' +
+      html += '<div class="box input-status"><div class="box-head"><h3>' + ist.q + '분기(' + ist.m1 + '~' + ist.m3 + '월) 실적 입력 현황</h3>' +
         '<span class="desc">' + esc(K.dotDate(ist.since)) + ' 이후 각 부서 담당자가 직접 저장한 기준(관리자 수정 제외) · ' + ist.list.length + '개 부서 중 ' + doneN + '개 입력 완료</span></div><ul>';
       ist.list.forEach(function (g) {
         var lab = g.level === 'done' ? '입력 완료' : g.level === 'part' ? '일부 입력' : '미입력';
@@ -242,8 +266,8 @@
       else fdOpen.push(f);
     });
 
-    html += '<section id="notes" class="pane" data-pane="notes"><div class="two-col">';
-    html += '<div class="panel flat"><h2>지표별 확인사항</h2><div class="desc">입력된 수치로 자동 작성합니다. 지표 하나에 한 줄씩 확인할 내용과 할 일을 적고, 실적 파일 확인사항도 함께 모았습니다.</div><div>';
+    html += '<section id="notes" class="pane" data-pane="notes"><div class="sec-head"><div><h2>확인사항·일정</h2><div class="desc">실적이 바뀌면 확인사항과 일정이 자동으로 다시 작성됩니다.</div></div></div><div class="two-col notes-cols">';
+    html += '<div class="box"><div class="box-head"><h3>지표별 확인사항</h3><span class="desc">입력된 수치로 자동 작성 · 실적 파일 확인사항 포함</span></div><div class="box-body">';
     auto.items.forEach(function (e) {
       var extra = (fdByItem[e.id] || []).map(function (f) { return '<span class="sub todo">실적 파일: ' + esc(f.item) + '</span>'; }).join('');
       html += '<div class="list-row check-row"><span class="body">' +
@@ -266,7 +290,7 @@
         html += '<div class="list-row"><span class="body"><span style="font-weight:600">' + esc(n.title) + '</span><span class="sub">' + esc(n.body) + '</span></span></div>';
       });
     }
-    html += '</div></div><div id="schedule" class="panel flat"><h2>일정</h2><div>';
+    html += '</div></div><div id="schedule" class="box"><div class="box-head"><h3>일정</h3></div><div class="box-body">';
     var sch = K.scheduleOf(data, r, now);
     if (alarm) html += alarmBox(alarm, true);
     sch.open.forEach(function (e) {
@@ -284,7 +308,7 @@
 
     var docOpen = data.fixes.doc.filter(function (f) { return f && !f.done; });
     var docDone = data.fixes.doc.filter(function (f) { return f && f.done; }).map(function (f) { return Object.assign({ why: '완료' }, f); });
-    html += '<div class="panel flat fix-wrap"><h2>정의서 정정 필요 사항</h2><div class="desc">정의서 산출식 재계산 결과</div><div>';
+    html += '<div class="box"><div class="box-head"><h3>정의서 정정 필요 사항</h3><span class="desc">정의서 산출식 재계산 결과</span></div><div class="box-body">';
     docOpen.forEach(function (f) { html += '<div class="list-row"><span class="body"><span style="font-weight:500">' + esc(f.item) + '</span><span class="sub">' + esc(f.detail) + '</span></span></div>'; });
     if (!docOpen.length) html += '<p class="dim">남은 정정 사항이 없습니다.</p>';
     html += doneList(docDone, function (f) { return '<span class="body"><span>' + esc(f.item) + '</span><span class="sub">' + esc(f.detail) + '</span></span>'; });

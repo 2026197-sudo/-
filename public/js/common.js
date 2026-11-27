@@ -505,7 +505,7 @@
       return g;
     });
     var order = { none: 0, part: 1, done: 2 };
-    list.sort(function (a, b) { return order[a.level] - order[b.level] || a.dept.localeCompare(b.dept, 'ko'); });
+    list.sort(function (a, b) { return order[a.level] - order[b.level] || b.items.length - a.items.length || a.dept.localeCompare(b.dept, 'ko'); });
     return { q: q.q, m1: q.m1, m3: q.m3, end: q.end, since: since, active: !!al, list: list };
   }
 
