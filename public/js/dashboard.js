@@ -57,7 +57,7 @@
     window.KPI_CURRENT = data;
     var m = data.meta, r = K.compute(data), th = r.thresholds;
     var elapsed = K.elapsedRatio(m);
-    var auto = K.insights(r, elapsed);
+    var auto = K.insights(r, elapsed, data.meta);
     var asOf = K.dotDate(m.asOfDate);
     var html = '';
 

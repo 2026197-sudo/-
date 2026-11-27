@@ -334,64 +334,158 @@
     return (c >= 0xAC00 && c <= 0xD7A3 && (c - 0xAC00) % 28) ? a : b;
   }
 
+  /* ---------- 결과보고(모니터링 및 분석 결과보고 기안) 문구 ----------
+     IR센터 분기 결과보고에 쓰는 표현을 지표별로 정리했습니다. 실적·상태가 바뀌면
+     요약보고서, 유의사항, 필수확인사항 문구가 이 표현으로 자동 작성됩니다.
+     {Y} 는 측정기간 시작 연도(학년도)로 바뀝니다. */
+  var BASIS = {
+    f2: { final: true, when: '2학기 해당 교과목 운영 실적을 반영하여 최종 실적값이 산출되는 지표로, 2학기 교과목 운영 종료 후 최종 실적을 반영할 예정',
+          todo: '2학기 교과목 운영 종료 후 최종 실적 반영', short: '2학기 교과목 운영 종료 후 최종 실적이 반영됩니다' },
+    f3: { when: '2학기 수요자만족도조사가 끝난 후 값이 도출됨에 따라', todo: '2학기 수요자만족도조사 종료 후 실적 입력',
+          short: '2학기 수요자만족도조사 후 확정됩니다' },
+    s2: { when: '{Y}. 10. 1. 기준 정보공시 자료를 통해 값이 도출되는 지표로', todo: '{Y}. 10. 1. 기준 정보공시 자료로 실적 입력',
+          short: '{Y}. 10. 1. 기준 정보공시 자료로 확정됩니다' },
+    g3: { when: "'{Y}-2 대학핵심역량진단'이 끝난 후 값이 도출됨에 따라", todo: "'{Y}-2 대학핵심역량진단' 종료 후 실적 입력",
+          short: '{Y}-2 대학핵심역량진단 후 확정됩니다' },
+    r1: { when: "'{Y}-2 대학핵심역량진단'이 끝난 후 값이 도출됨에 따라", todo: "'{Y}-2 대학핵심역량진단' 종료 후 실적 입력",
+          short: '{Y}-2 대학핵심역량진단 후 확정됩니다' }
+  };
+  var EXTERNAL = ['g2', 'r2', 'r3']; // 외부 연계 기반 지표 (열린평생직업교육, 인적·물적 자원 공유·협력, 성과 공유·확산)
+  var LOW = 50; // 결과보고의 '낮은 달성률' 기준
+
+  function itemName(it) { return String(it.name || '').replace(/\s*\(.*?\)\s*/g, ' ').trim(); }
+  function quote(it) { var n = itemName(it); return "'" + n + "'" + josa(n, '은', '는'); }
+  function basisOf(it, meta) {
+    var b = BASIS[it.id];
+    if (!b) return null;
+    var y = String((meta && meta.periodStart) || '').slice(0, 4) || String(new Date().getFullYear());
+    var fill = function (t) { return String(t || '').replace(/\{Y\}/g, y); };
+    return { final: !!b.final, when: fill(b.when), todo: fill(b.todo), short: fill(b.short) };
+  }
+  /* 측정 전·미입력 지표의 입력 상태 문구: 목표의 90% 안팎이면 '90% 수준을 입력함' */
+  function inputPhrase(it) {
+    var cur = num(it.current), tgt = num(it.targets && it.targets.y2);
+    if (it.state === 'missing' || cur === null) return '현재는 실적값을 미기재함';
+    if (tgt) {
+      var ratio = cur / tgt * 100;
+      if (ratio >= 85 && ratio <= 95) return '90% 수준을 입력함';
+      return '목표의 ' + ratio.toFixed(0) + '% 수준(' + fmt(cur) + it.unit + ')을 잠정 입력함';
+    }
+    return fmt(cur) + it.unit + '을 잠정 입력함';
+  }
+
+  /* 결과보고 '세부성과지표 달성현황 분석'의 ○ 문장들 */
+  function reportAnalysis(r, meta, elapsedRatioValue) {
+    var el = elapsedRatioValue === null || elapsedRatioValue === undefined ? null : elapsedRatioValue * 100;
+    var all = [];
+    r.indices.forEach(function (ix) { ix.items.forEach(function (it) { all.push(it); }); });
+    var measured = all.filter(function (it) { return it.state === 'actual' && it.prog !== null; });
+    var low = measured.filter(function (it) { return it.prog < LOW; }).sort(function (a, b) { return a.prog - b.prog; });
+    var weak = measured.filter(function (it) { return it.prog < 60 || (el !== null && it.prog < el); });
+    var lines = [];
+
+    if (measured.length) {
+      var onTrack = measured.filter(function (it) { return el === null || it.prog >= el; }).length;
+      lines.push('사업추진에 따른 실적이 반영되어 측정 지표 ' + measured.length + '개 중 ' + onTrack + '개가 ' +
+        (el !== null ? '기간 경과율(' + el.toFixed(1) + '%) 이상의 달성률을 보임' : '계획에 따라 추진되고 있음'));
+    }
+    if (low.length) {
+      lines.push((measured.length ? '반면 ' : '') + low.map(function (it) { return itemName(it) + '(' + it.prog.toFixed(1) + '%)'; }).join(', ') +
+        ' 지표는 ' + LOW + '% 미만의 낮은 달성률을 보여 지속적인 관리가 필요함');
+    } else if (measured.length) {
+      lines.push('측정된 모든 지표가 ' + LOW + '% 이상의 달성률을 보이고 있음');
+    }
+    all.forEach(function (it) {
+      var b = basisOf(it, meta);
+      if (it.state === 'actual') {
+        if (b && b.final && it.prog !== null && it.prog < 100) lines.push(quote(it) + ' ' + b.when);
+        return;
+      }
+      if (b && !b.final) lines.push(quote(it) + ' ' + b.when + (/지표로$/.test(b.when) ? ', ' : ' ') + inputPhrase(it));
+      else lines.push(quote(it) + ' 측정 전 지표로, 값이 도출된 후 최종 실적을 반영할 예정' + (it.state === 'missing' ? '이며 현재는 실적값을 미기재함' : ''));
+    });
+    var ext = all.filter(function (it) { return EXTERNAL.indexOf(it.id) >= 0 && it.state === 'actual' && it.prog !== null && (it.prog < 60 || (el !== null && it.prog < el)); });
+    if (ext.length) {
+      lines.push(ext.map(itemName).join(', ') + ' 등 외부 연계 기반 지표에서 개선 필요성이 확인됨에 따라, 향후 관련 프로그램의 참여 확대와 운영 전략 보완이 필요할 것으로 판단됨');
+    }
+    if (weak.length) lines.push('일부 지표의 낮은 달성률을 보완하기 위해 미추진·추진 중인 사업의 이행상황을 지속적으로 점검하고 참여 독려를 강화할 필요가 있음');
+    var q = quarterOf(meta || {}, meta && meta.asOfDate);
+    if (q && q.q < 4) lines.push('향후 ' + (q.q + 1) + '분기에는 ' + (q.q + 1 >= 3 ? '2학기 ' : '') + '사업 추진 실적을 적극 반영하여 세부성과지표 달성률 90% 이상을 목표로 사업을 운영');
+    else if (q) lines.push('연차 최종 실적 집계 시 측정 전 지표의 확정값을 반영하여 세부성과지표 달성률을 최종 점검할 예정');
+    return { lines: lines, low: low, weak: weak, ext: ext };
+  }
+
+  /* 결과보고 '성과지표 달성률 요약' 문장 */
+  function reportSummary(r, meta) {
+    var a = String((meta && meta.asOfDate) || '').split('-');
+    var mon = a.length > 1 ? Number(a[1]) + '월' : '현재';
+    return mon + ' 기준 ' + r.indices.length + '개 핵심지표 달성률은 ' +
+      r.indices.map(function (ix) { return ix.name + ' ' + (ix.prog === null ? '-' : ix.prog.toFixed(1)); }).join(', ') + '로 나타남';
+  }
+
   /* 지표 상태로 자동 유의사항과 자동 점검 목록을 만듭니다.
-     값을 입력하거나 상태를 바꾸면 다음 화면부터 바로 바뀝니다. */
-  function insights(r, elapsedRatioValue) {
+     값을 입력하거나 상태를 바꾸면 다음 화면부터 바로 바뀝니다.
+     문구는 IR센터 분기 결과보고의 표현을 따릅니다. */
+  function insights(r, elapsedRatioValue, meta) {
     var el = elapsedRatioValue === null || elapsedRatioValue === undefined ? null : elapsedRatioValue * 100;
     var notes = [], checks = [];
-    var pending = [], missing = [], red = [], lagging = [];
+    var an = reportAnalysis(r, meta || {}, elapsedRatioValue);
+    var pending = [], missing = [], red = [], lagging = [], finals = [];
     r.indices.forEach(function (ix) {
       ix.items.forEach(function (it) {
         var x = { it: it, ix: ix };
         if (it.state === 'pending') pending.push(x);
         else if (it.state === 'missing') missing.push(x);
-        else if (it.band && it.band.key === 'red') red.push(x);
-        else if (it.band && it.band.key === 'yellow' && el !== null && it.prog < el) lagging.push(x);
-      });
-    });
-
-    missing.forEach(function (x) {
-      var it = x.it;
-      notes.push({
-        title: (it.short || it.name) + ' 미입력은 0으로 계산됩니다',
-        body: '반영비중 ' + it.weight + '%라 값이 입력되면 ' + x.ix.name + josa(x.ix.name, '이', '가') + ' 크게 달라집니다.' + (it.note ? ' (' + it.note + ')' : '')
-      });
-      checks.push({ tag: 'missing', label: '미입력', who: it.dept, what: it.name + ' 자료 입력' + (it.note ? ' (' + it.note + ')' : '') });
-    });
-
-    if (pending.length) {
-      var lines = pending.map(function (x) {
-        var it = x.it, cur = num(it.current), prev = num(it.y1Actual), s = it.short || it.name;
-        if (cur === null) return s;
-        var t = s + ' 입력값 ' + fmt(cur) + it.unit;
-        if (prev !== null && it.unit === '점') {
-          var diff = Math.round((cur - prev) * 100) / 100;
-          t += '(작년 ' + fmt(prev) + it.unit + ' 대비 ' + (diff > 0 ? '+' : diff < 0 ? '−' : '±') + fmt(Math.abs(diff)) + it.unit + ')';
+        else {
+          var b = basisOf(it, meta);
+          if (b && b.final && it.prog !== null && it.prog < 100) finals.push(x);
+          if (it.band && it.band.key === 'red') red.push(x);
+          else if (it.band && it.band.key === 'yellow' && el !== null && it.prog < el) lagging.push(x);
         }
-        return t;
       });
+    });
+
+    if (an.low.length) {
       notes.push({
-        title: '측정 전 지표 ' + pending.length + '개는 달성률을 계산하지 않습니다',
-        body: lines.join(', ') + '. 입력된 값은 근거 확인 전 값으로 혁신지수 계산에만 포함되며, 점수형 지표의 비율은 달성률이 아닙니다.'
-      });
-      var byDept = {};
-      pending.forEach(function (x) { (byDept[x.it.dept] = byDept[x.it.dept] || []).push(x.it.short || x.it.name); });
-      Object.keys(byDept).forEach(function (dept) {
-        checks.push({ tag: 'pending', label: '측정 전', who: dept, what: byDept[dept].join(', ') + ' 측정 일정 확정 및 입력값 근거 확인' });
+        title: LOW + '% 미만 지표 ' + an.low.length + '개는 지속적인 관리가 필요합니다',
+        body: an.low.map(function (it) { return itemName(it) + '(' + it.prog.toFixed(1) + '%)'; }).join(', ') +
+          ' 지표는 ' + LOW + '% 미만의 낮은 달성률을 보여 지속적인 관리가 필요함.'
       });
     }
-
+    missing.concat(pending).forEach(function (x) {
+      var it = x.it, b = basisOf(it, meta);
+      notes.push({
+        title: (function (n) { return n + (b ? josa(n, '은', '는') + ' ' + b.short : (it.state === 'missing' ? ' 미입력은 0으로 계산됩니다' : josa(n, '은', '는') + ' 측정 전 지표입니다')); })(it.short || itemName(it)),
+        body: (b && !b.final ? quote(it) + ' ' + b.when + (/지표로$/.test(b.when) ? ', ' : ' ') + inputPhrase(it) + '. ' : '') +
+          (it.state === 'missing' ? '미입력 값은 0으로 계산되어 ' + x.ix.name + josa(x.ix.name, '이', '가') + ' 실제보다 낮게 나타남(반영비중 ' + it.weight + '%).' :
+            '입력값은 확정 전 값으로 혁신지수 계산에만 포함되며 달성률은 계산하지 않음.')
+      });
+      checks.push({ tag: it.state, label: it.state === 'missing' ? '미입력' : '측정 전', who: it.dept,
+        what: (b ? b.todo.replace(/ 실적 입력$/, '') + ' ' + itemName(it) + ' 실적 입력' : itemName(it) + (it.state === 'missing' ? ' 자료 입력' : ' 측정 일정 확정 및 입력값 근거 확인')) + (it.note ? ' (' + it.note + ')' : '') });
+    });
+    finals.forEach(function (x) {
+      var it = x.it, b = basisOf(it, meta);
+      var nm = it.short || itemName(it);
+      notes.push({ title: nm + josa(nm, '은', '는') + ' ' + b.short, body: quote(it) + ' ' + b.when + '.' });
+      checks.push({ tag: 'pending', label: '최종 반영', who: it.dept, what: b.todo + ' (' + itemName(it) + ', 현재 ' + it.prog.toFixed(1) + '%)' });
+    });
+    if (an.ext.length) {
+      notes.push({ title: '외부 연계 기반 지표의 개선이 필요합니다',
+        body: an.ext.map(function (it) { return itemName(it) + '(' + it.prog.toFixed(1) + '%)'; }).join(', ') +
+          ' 등 외부 연계 기반 지표에서 개선 필요성이 확인됨에 따라, 향후 관련 프로그램의 참여 확대와 운영 전략 보완이 필요할 것으로 판단됨.' });
+    }
     red.forEach(function (x) {
       var it = x.it;
-      notes.push({
-        title: (it.short || it.name) + ' 달성률이 ' + it.prog.toFixed(1) + '%로 부진합니다',
-        body: (el !== null ? '기간 경과율(' + el.toFixed(1) + '%)보다 ' + (el - it.prog).toFixed(1) + '%p 낮습니다. ' : '') + (it.note ? it.note : '')
-      });
-      checks.push({ tag: 'red', label: '부진', who: it.dept, what: it.name + ' 실적 점검 및 추진 계획 확인 (현재 ' + it.prog.toFixed(1) + '%)' });
+      if (finals.some(function (f) { return f.it === it; })) return;
+      checks.push({ tag: 'red', label: '부진', who: it.dept, what: itemName(it) + ' 미추진·추진 중인 사업의 이행상황 점검 및 참여 독려 강화 (현재 ' + it.prog.toFixed(1) + '%)' });
     });
     lagging.forEach(function (x) {
       var it = x.it;
-      checks.push({ tag: 'yellow', label: '주의', who: it.dept, what: it.name + ' 기간 경과율 대비 부족분 점검 (현재 ' + it.prog.toFixed(1) + '%, 경과율 ' + el.toFixed(1) + '%)' });
+      checks.push({ tag: 'yellow', label: '주의', who: it.dept, what: itemName(it) + ' 기간 경과율 대비 부족분 점검 (현재 ' + it.prog.toFixed(1) + '%, 경과율 ' + el.toFixed(1) + '%)' });
+    });
+    an.ext.forEach(function (it) {
+      if (it.band && (it.band.key === 'red' || (it.band.key === 'yellow' && el !== null && it.prog < el))) return;
+      checks.push({ tag: 'yellow', label: '외부 연계', who: it.dept, what: itemName(it) + ' 관련 프로그램 참여 확대 및 운영 전략 보완 (현재 ' + it.prog.toFixed(1) + '%)' });
     });
 
     return { notes: notes, checks: checks };
@@ -433,7 +527,7 @@
     esc: esc, num: num, fmt: fmt, pct: pct, band: band, compute: compute,
     clockText: clockText, dotDate: dotDate, elapsedRatio: elapsedRatio, daysUntil: daysUntil,
     initTheme: initTheme, toggleTheme: toggleTheme, startClock: startClock,
-    normalize: normalize, insights: insights, josa: josa,
+    normalize: normalize, insights: insights, josa: josa, reportAnalysis: reportAnalysis, reportSummary: reportSummary,
     linkDone: linkDone, findItem: findItem, scheduleOf: scheduleOf, quarterOf: quarterOf, SCHEMA: SCHEMA, deptSummary: deptSummary
   };
 })(typeof window !== 'undefined' ? window : globalThis);
