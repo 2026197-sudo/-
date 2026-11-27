@@ -423,15 +423,13 @@ export async function handle(req, { store, ip, path: forcedPath, platform }) {
         const same = p && JSON.stringify([p.current, p.status, p.note, p.owner, p.subs]) === JSON.stringify([it.current, it.status, it.note, it.owner, it.subs]);
         if (p && p.inputs) it.inputs = p.inputs; else delete it.inputs;
         if (same) { if (p.inputAt) { it.inputAt = p.inputAt; it.inputBy = p.inputBy; } else { delete it.inputAt; delete it.inputBy; } }
-        else {
-          it.inputAt = stamp; it.inputBy = adminName;
-          // 관리자가 자기 담당 부서(예: 기획팀, IR센터) 지표를 고치면 그 부서 입력으로도 기록
-          splitDepts(me.dept).forEach((d) => {
-            if (splitDepts(it.dept).includes(d) || (it.subs || []).some((sb) => splitDepts(sb.dept).includes(d))) {
-              it.inputs = Object.assign({}, it.inputs || {}, { [d]: { at: stamp, by: `${me.name} (${d})` } });
-            }
-          });
-        }
+        else { it.inputAt = stamp; it.inputBy = adminName; }
+        // 관리자가 저장하면 자기 담당 부서(예: 기획팀, IR센터) 지표는 값이 그대로여도 '입력(확인)'으로 기록
+        splitDepts(me.dept).forEach((d) => {
+          if (splitDepts(it.dept).includes(d) || (it.subs || []).some((sb) => splitDepts(sb.dept).includes(d))) {
+            it.inputs = Object.assign({}, it.inputs || {}, { [d]: { at: stamp, by: `${me.name} (${d})` } });
+          }
+        });
       }));
       doc.meta.updatedAt = kstIso();
       doc.meta.updatedBy = adminName;

@@ -464,7 +464,7 @@
         : '<p class="dim small">가입 대기 중인 관리자 지정이 없습니다.</p>';
       if (!list.length) { box.innerHTML = '<p class="dim">아직 가입한 담당자가 없습니다.</p>'; return; }
       box.innerHTML = '<datalist id="deptList">' + userDepts.map(function (d) { return '<option value="' + esc(d) + '">'; }).join('') + '</datalist>' +
-        '<p class="small dim">부서 칸에 여러 부서를 쉼표로 적으면(예: 기획팀, IR센터) 그 부서들의 담당자가 됩니다. 관리자도 담당 부서를 적어 두면 그 부서 지표를 고칠 때 부서 입력 현황에 입력 완료로 기록됩니다.</p>' +
+        '<p class="small dim">부서 칸에 여러 부서를 쉼표로 적으면(예: 기획팀, IR센터) 그 부서들의 담당자가 됩니다. 관리자도 담당 부서를 적어 두면, 저장할 때 그 부서 지표가 값이 그대로여도 부서 입력 현황에 입력 완료로 기록됩니다.</p>' +
         '<div class="table-scroll"><table class="le-table users-table"><thead><tr><th scope="col">인사번호</th><th scope="col">이름</th><th scope="col">부서</th><th scope="col">권한</th>' +
         '<th scope="col">가입</th><th scope="col">최근 로그인</th><th scope="col"></th></tr></thead><tbody>' +
         list.map(function (u, i) {
