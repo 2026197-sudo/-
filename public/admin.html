@@ -109,6 +109,16 @@
       </div>
       <button type="button" id="usersReload" class="btn btn-sm">새로고침</button>
     </div>
+    <div class="invite-box">
+      <h3>관리자 미리 지정</h3>
+      <p class="desc">인사번호를 등록해 두면 그 인사번호로 가입하는 순간 관리자 권한(전체 수정)이 주어집니다. 이미 가입한 분이면 바로 관리자가 됩니다. 이름이 아니라 인사번호로 확인하므로 같은 이름으로 가입해도 권한이 넘어가지 않습니다.</p>
+      <div class="invite-form">
+        <label class="field">인사번호<input id="invId" inputmode="numeric" maxlength="12"></label>
+        <label class="field">이름 (참고용)<input id="invName" maxlength="20"></label>
+        <button type="button" id="invAdd" class="btn btn-primary">관리자로 지정</button>
+      </div>
+      <div id="invites"></div>
+    </div>
     <div id="users"><p class="dim">불러오는 중…</p></div>
   </section>
 

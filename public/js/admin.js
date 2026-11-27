@@ -454,6 +454,12 @@
     return KPIAuth.api('api/users').then(function (r) { return r.json(); }).then(function (res) {
       var list = res.users || [];
       userDepts = res.departments || [];
+      var inv = res.invites || [];
+      document.getElementById('invites').innerHTML = inv.length
+        ? '<p class="small"><b>가입 대기 중인 관리자 ' + inv.length + '명</b></p><ul class="invite-list">' + inv.map(function (x) {
+            return '<li><span>' + esc(x.name || '(이름 미기재)') + ' · 인사번호 ' + esc(x.id) + '</span><button type="button" class="btn btn-sm" data-uninvite="' + esc(x.id) + '">지정 취소</button></li>';
+          }).join('') + '</ul>'
+        : '<p class="dim small">가입 대기 중인 관리자 지정이 없습니다.</p>';
       if (!list.length) { box.innerHTML = '<p class="dim">아직 가입한 담당자가 없습니다.</p>'; return; }
       box.innerHTML = '<div class="table-scroll"><table class="le-table users-table"><thead><tr><th scope="col">인사번호</th><th scope="col">이름</th><th scope="col">부서</th><th scope="col">권한</th>' +
         '<th scope="col">가입</th><th scope="col">최근 로그인</th><th scope="col"></th></tr></thead><tbody>' +
@@ -493,6 +499,21 @@
     }).catch(function () { msg('저장소에 연결할 수 없습니다.'); b.disabled = false; });
   });
   document.getElementById('usersReload').addEventListener('click', loadUsers);
+  document.getElementById('invAdd').addEventListener('click', function () {
+    var id = document.getElementById('invId').value.trim(), name = document.getElementById('invName').value.trim();
+    if (!id) { msg('관리자로 지정할 인사번호를 입력해 주세요.'); return; }
+    post('api/users', { action: 'invite', id: id, name: name }).then(function (res) {
+      if (!res.ok) { msg('지정하지 못했습니다: ' + (res.body.error || res.status)); return; }
+      msg(res.body.granted ? (name || id) + ' 님은 이미 가입되어 있어 바로 관리자 권한을 드렸습니다.' : (name || id) + ' 님을 관리자로 지정했습니다. 이 인사번호로 가입하면 바로 관리자가 됩니다.', true);
+      document.getElementById('invId').value = ''; document.getElementById('invName').value = '';
+      return loadUsers();
+    }).catch(function () { msg('저장소에 연결할 수 없습니다.'); });
+  });
+  document.getElementById('invites').addEventListener('click', function (e) {
+    var b = e.target.closest('[data-uninvite]');
+    if (!b) return;
+    post('api/users', { action: 'uninvite', id: b.getAttribute('data-uninvite') }).then(function () { msg('관리자 지정을 취소했습니다.', true); return loadUsers(); });
+  });
 
   /* 세부값을 입력하면 지표 현재값을 바로 다시 계산해 보여 줌 */
   document.getElementById('rows').addEventListener('input', function (e) {

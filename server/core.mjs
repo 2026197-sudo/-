@@ -31,6 +31,7 @@ const KEY_CURRENT = "current";
 const KEY_INDEX = "history-index";
 const KEY_USERS = "users";
 const KEY_SECRET = "auth-secret";
+const KEY_INVITES = "admin-invites"; // 가입하면 바로 관리자가 될 인사번호 (관리자가 등록)
 const MAX_BODY = 1024 * 1024; // 1MB
 const KEEP_HISTORY = 100;
 const TOKEN_HOURS = 12;          // 기본 로그인 유지 시간
@@ -118,6 +119,10 @@ async function readUsers(store) {
     await store.setJSON(KEY_USERS, users);
   }
   return users;
+}
+async function readInvites(store) {
+  const v = await store.get(KEY_INVITES, { type: "json" });
+  return Array.isArray(v) ? v : [];
 }
 async function archive(store, doc, reason) {
   const id = newId();
@@ -318,6 +323,11 @@ export async function handle(req, { store, ip, path: forcedPath, platform }) {
       await bump(store, ipKey, SIGNUP_WINDOW);
       const salt = randomBytes(16).toString("hex");
       const user = { id, name, dept, salt, pinHash: hashPin(pin, salt), createdAt: kstIso() };
+      const invites = await readInvites(store);
+      if (invites.some((x) => x.id === id)) {
+        user.admin = true; // 관리자가 미리 지정한 인사번호
+        await store.setJSON(KEY_INVITES, invites.filter((x) => x.id !== id));
+      }
       users.push(user);
       await store.setJSON(KEY_USERS, users);
       const saved = (await readUsers(store)).find((x) => x.id === id) || user; // 첫 가입자는 여기서 관리자가 됨
@@ -442,7 +452,7 @@ export async function handle(req, { store, ip, path: forcedPath, platform }) {
 
     if (path === "/api/users" && req.method === "GET") {
       const users = (await readUsers(store)).map((u) => ({ id: u.id, name: u.name, dept: u.dept, admin: !!u.admin, pinReset: !u.pinHash, createdAt: u.createdAt || null, lastLogin: u.lastLogin || null }));
-      return json(200, { users, departments: departmentsOf(await readCurrent(store)) });
+      return json(200, { users, invites: await readInvites(store), departments: departmentsOf(await readCurrent(store)) });
     }
 
     if (path === "/api/users" && req.method === "POST") {
@@ -451,6 +461,21 @@ export async function handle(req, { store, ip, path: forcedPath, platform }) {
       const { action } = body.value || {};
       const id = normId(body.value && body.value.id);
       const users = await readUsers(store);
+      // 관리자 미리 지정: 아직 가입 전이면 목록에 넣고, 이미 가입했으면 바로 관리자 권한
+      if (action === "invite") {
+        if (!ID_RE.test(id)) return json(400, { error: "인사번호를 확인해 주세요 (숫자·영문 4~12자)." });
+        const name = String(body.value.name || "").trim().slice(0, 20);
+        const u = users.find((x) => x.id === id);
+        if (u) { u.admin = true; await store.setJSON(KEY_USERS, users); return json(200, { ok: true, granted: true }); }
+        const inv = (await readInvites(store)).filter((x) => x.id !== id);
+        inv.push({ id, name, at: kstIso(), by: me.name });
+        await store.setJSON(KEY_INVITES, inv.slice(-50));
+        return json(200, { ok: true, granted: false });
+      }
+      if (action === "uninvite") {
+        await store.setJSON(KEY_INVITES, (await readInvites(store)).filter((x) => x.id !== id));
+        return json(200, { ok: true });
+      }
       const i = users.findIndex((u) => u.id === id);
       if (i < 0) return json(404, { error: "가입자를 찾을 수 없습니다." });
       const lastAdmin = users[i].admin && users.filter((u) => u.admin).length === 1 && admins().length === 0;
