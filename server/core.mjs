@@ -386,6 +386,26 @@ export async function handle(req, { store, ip, path: forcedPath, platform }) {
       return json(200, await readCurrent(store));
     }
 
+    // 변경사항 없음(확인 완료): 값은 그대로 두고, 내 담당 부서 지표를 이번 분기 입력으로 기록
+    if (path === "/api/confirm" && req.method === "POST") {
+      const myDepts = splitDepts(me.dept);
+      if (!myDepts.length) return json(400, { error: "담당 부서가 지정되어 있지 않습니다. 가입자 관리에서 부서를 지정해 주세요." });
+      const current = await readCurrent(store);
+      const stamp = kstIso(), counted = [];
+      current.indices.forEach((ix) => ix.items.forEach((it) => {
+        const rec = {};
+        myDepts.forEach((d) => {
+          if (splitDepts(it.dept).includes(d) || (it.subs || []).some((sb) => splitDepts(sb.dept).includes(d))) rec[d] = { at: stamp, by: `${me.name} (${d})` };
+        });
+        if (Object.keys(rec).length) { it.inputs = Object.assign({}, it.inputs || {}, rec); counted.push(it.short || it.name); }
+      }));
+      if (!counted.length) return json(400, { error: "담당 부서에 해당하는 지표가 없습니다." });
+      current.meta.updatedAt = kstIso();
+      current.meta.updatedBy = `${me.name} (${me.dept}, 변경사항 없음 확인)`;
+      await store.setJSON(KEY_CURRENT, current);
+      return json(200, { ok: true, counted, updatedAt: current.meta.updatedAt });
+    }
+
     if (path === "/api/data" && req.method === "POST") {
       const body = await readBody(req);
       if (body.error) return json(400, { error: body.error });

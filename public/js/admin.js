@@ -7,6 +7,7 @@
   var DEPT_KEY = 'kmcuKpiDept';
   var orig = null; // 불러온 시점의 자료 (내 변경분 계산용)
   var me = null;   // 로그인한 사람 { id, name, dept, admin }
+  var baseline = ''; // 화면을 채운 직후의 입력값 (고친 값이 있는지 확인용)
   function myDepts() { return splitDepts(me.dept); }
   function mine(dept) { var mds = myDepts(); return me.admin || splitDepts(dept).some(function (d) { return mds.indexOf(d) >= 0; }); }
   function itemDepts(it) { // 지표 관리부서 + 세부운영지수 부서
@@ -235,6 +236,7 @@
     LISTS.forEach(function (L) { work[L.key] = JSON.parse(JSON.stringify(L.get(data) || [])); });
     renderLists();
     renderAutoPreview(data);
+    baseline = JSON.stringify(collect().next.indices);
     document.getElementById('updated').textContent = '최종 수정 ' + shortTime(m.updatedAt) + (m.updatedBy ? ' · ' + m.updatedBy : '');
   }
 
@@ -352,6 +354,21 @@
       box.innerHTML = '<p class="dim">변경 이력을 불러오지 못했습니다.</p>';
     });
   }
+
+  /* 변경사항 없음 (확인 완료) */
+  document.getElementById('confirmBtn').addEventListener('click', function () {
+    var c = collect();
+    if (JSON.stringify(c.next.indices) !== baseline) {
+      if (!window.confirm('화면에서 고친 값이 있습니다. 고친 값은 저장하지 않고 "변경사항 없음"으로 기록할까요?\n고친 값을 반영하려면 [취소] 후 [저장하기]를 누르세요.')) return;
+    }
+    var btn = this; btn.disabled = true;
+    post('api/confirm', {}).then(function (res) {
+      if (!res.ok) { msg('기록하지 못했습니다: ' + (res.body.error || res.status)); return; }
+      msg('변경사항 없음으로 기록했습니다 (' + res.body.counted.length + '개 지표). 부서 입력 현황과 일정에 입력 완료로 표시됩니다.', true);
+      return load();
+    }).catch(function () { msg('저장소에 연결할 수 없습니다.'); })
+      .then(function () { btn.disabled = false; });
+  });
 
   document.getElementById('editor').addEventListener('submit', function (e) {
     e.preventDefault();

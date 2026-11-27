@@ -184,7 +184,7 @@
     if (ist) {
       var doneN = ist.list.filter(function (g) { return g.level === 'done'; }).length;
       html += '<div class="box input-status"><div class="box-head"><h3>' + ist.q + '분기(' + ist.m1 + '~' + ist.m3 + '월) 실적 입력 현황</h3>' +
-        '<span class="desc">' + esc(K.dotDate(ist.since)) + ' 이후 각 부서 담당자가 직접 저장한 기준(관리자 수정 제외) · ' + ist.list.length + '개 부서 중 ' + doneN + '개 입력 완료</span></div><ul>';
+        '<span class="desc">' + esc(K.dotDate(ist.since)) + ' 이후 각 부서 담당자가 저장하거나 [변경사항 없음]으로 확인한 기준 · ' + ist.list.length + '개 부서 중 ' + doneN + '개 입력 완료</span></div><ul>';
       ist.list.forEach(function (g) {
         var lab = g.level === 'done' ? '입력 완료' : g.level === 'part' ? '일부 입력' : '미입력';
         var missing = g.items.filter(function (x) { return !x.ok; }).map(function (x) { return x.name; });
