@@ -169,11 +169,11 @@
 
   function fill() {
     var m = data.meta;
-    ['title', 'badge', 'dataBasis', 'asOfDate', 'reportRef'].forEach(function (k) {
+    ['title', 'badge', 'dataBasis', 'asOfDate'].forEach(function (k) {
       document.getElementById('m-' + k).value = m[k] || '';
     });
     document.getElementById('m-updatedBy').value = me.admin ? (me.name === '관리자' ? '관리자' : me.name + ' (관리자)') : me.name + ' (' + me.dept + ')';
-    ['title', 'badge', 'dataBasis', 'asOfDate', 'reportRef'].forEach(function (k) { document.getElementById('m-' + k).disabled = !me.admin; });
+    ['title', 'badge', 'dataBasis', 'asOfDate'].forEach(function (k) { document.getElementById('m-' + k).disabled = !me.admin; });
 
     var html = '';
     data.indices.forEach(function (ix, i) {
@@ -200,7 +200,7 @@
 
   function collect() {
     var next = JSON.parse(JSON.stringify(data));
-    ['title', 'badge', 'dataBasis', 'asOfDate', 'reportRef', 'updatedBy'].forEach(function (k) {
+    ['title', 'badge', 'dataBasis', 'asOfDate', 'updatedBy'].forEach(function (k) {
       next.meta[k] = document.getElementById('m-' + k).value.trim();
     });
     var bad = [];
@@ -235,7 +235,7 @@
   }
 
   /* 동시 저장 대비: 불러온 뒤 내가 바꾼 부분만 골라 최신 자료에 합칩니다 */
-  var META_KEYS = ['title', 'badge', 'dataBasis', 'asOfDate', 'reportRef'];
+  var META_KEYS = ['title', 'badge', 'dataBasis', 'asOfDate'];
   var ITEM_KEYS = ['current', 'status', 'note', 'dept'];
   var LIST_PATHS = [['notes'], ['events'], ['fixes', 'data'], ['fixes', 'doc']];
   function getPath(o, p) { return p.reduce(function (a, k) { return a ? a[k] : undefined; }, o); }

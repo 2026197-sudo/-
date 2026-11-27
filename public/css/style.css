@@ -486,3 +486,14 @@ body.locked #excelBtn, body.locked #reportBtn { display: none !important; }
 .gd .gd-meta .gd-subject th, .gd .gd-meta .gd-subject td { padding-bottom: 6px; border-bottom: 2px solid #000000; }
 .gd .gd-sign th[scope] { padding: 14px 0 22px; border: none; }
 .gd .gd-table th, .gd .gd-table td { padding: 4px 6px; }
+
+.gd-head { display: flex; align-items: center; gap: 18px; padding-bottom: 14px; border-bottom: 2px solid #000000; }
+.gd-head img { height: 36px; width: auto; }
+.gd-head h2 { margin: 0; font-family: var(--font-title); font-size: 22px; color: #000000; line-height: 1.35; }
+.gd-sub { font-size: 12px; color: #555555; }
+.gd h3 { margin: 22px 0 6px; font-size: 15px; font-weight: 700; color: #000000; }
+.gd h3 span { font-weight: 400; font-size: 13px; color: #555555; }
+.gd .gd-box { margin-left: 0; }
+.gd .l3 { padding-left: 0; margin-top: 6px; }
+.gd .l4 { padding-left: 1.1em; text-indent: -1.1em; margin-top: 2px; }
+.gd .gd-table { width: 100%; margin-left: 0; }

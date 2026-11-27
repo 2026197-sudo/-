@@ -33,7 +33,7 @@
       pending: pending, missing: missing, top: byProg[0], bottom: byProg[byProg.length - 1], now: now };
   }
 
-  /* ---------- 보고서 작성: 학교 결과보고(기안문) 형식 ---------- */
+  /* ---------- 보고서 작성: 결과보고 문체로 요약 ---------- */
   function chartSvg(indices) { // 혁신지수별 달성률 막대그래프
     var w = 360, h = 190, left = 34, bottom = 150, top = 26, bw = 46, gap = (w - left - 10 - bw * indices.length) / indices.length;
     var max = Math.max(100, Math.ceil(Math.max.apply(null, indices.map(function (ix) { return ix.prog || 0; })) / 20) * 20);
@@ -61,7 +61,7 @@
     var startMon = Number(String(m.periodStart || '').split('-')[1] || 3);
     var asMon = Number(String(m.asOfDate || '').split('-')[1] || 0);
     var asYear = String(m.asOfDate || '').slice(0, 4);
-    var subject = '[혁신]' + year + '학년도 전문대학 혁신지원사업 ' + qLabel + ' 모니터링 및 분석 결과보고';
+    var subject = '[혁신지원사업단] ' + year + '학년도 자율성과지표 ' + qLabel + ' 모니터링 요약';
     var el = K.elapsedRatio(m);
     var an = K.reportAnalysis(a.r, m, el);
     var summary = K.reportSummary(a.r, m);
@@ -73,30 +73,19 @@
     if (a.pending.length || a.missing.length) sideNotes.push('측정 전·미입력 지표 ' + (a.pending.length + a.missing.length) + '개가 포함된 잠정치로, 확정 실적 반영 시 달라질 수 있음');
 
     var h = '<div class="gd">';
-    h += '<header class="gd-top"><img src="img/logo.png" alt=""><h2 id="reportTitle">' + esc(m.university || '계명문화대학교') + '</h2><span></span></header>';
-    h += '<table class="gd-meta"><tbody>' +
-      '<tr><th scope="row">수&nbsp;&nbsp;신</th><td>내부결재</td></tr>' +
-      '<tr><th scope="row">(경유)</th><td></td></tr>' +
-      '<tr class="gd-subject"><th scope="row">제&nbsp;&nbsp;목</th><td>' + esc(subject) + '</td></tr></tbody></table>';
+    h += '<header class="gd-head"><img src="img/logo.png" alt="계명문화대학교"><div>' +
+      '<h2 id="reportTitle">' + esc(year) + '학년도 자율성과지표 ' + esc(qLabel) + ' 모니터링 요약</h2>' +
+      '<p class="gd-sub">모니터링 기간 ' + esc(period.replace(/^\d+학년도 \S+\(/, '').replace(/\)$/, '')) + ' · 자료 ' + esc(m.dataBasis) + ' · 작성 ' + esc(written) + '</p></div></header>';
 
-    var n = 1;
-    h += '<div class="gd-body">';
-    if (m.reportRef) h += '<p>' + (n++) + '. 관련 : ' + esc(m.reportRef) + '</p><p class="gd-gap"></p>';
-    h += '<p>' + (n++) + '. ' + esc(year) + '학년도 전문대학 혁신지원사업 ' + esc(qLabel) + ' 성과지표 모니터링 및 분석결과를 다음과 같이 보고합니다.</p>';
-    h += '<p class="l1">가. 목적</p>' +
-      '<p class="l2">1) IR센터 중심의 혁신지원사업 프로그램 성과 분석 및 관리, 환류 체계 강화</p>' +
-      '<p class="l2">2) 지속적인 사업 모니터링을 통한 사업 성과 창출의 수월성 및 지속성 확보</p>';
-    h += '<p class="l1">나. 개요</p>' +
-      '<p class="l2">1) 데이터 : 부서별 성과지표 실적 입력 자료(성과관리 시스템, ' + esc(m.dataBasis) + ')</p>' +
-      '<p class="l2">2) 모니터링 기간 : ' + esc(period) + '</p>';
-    h += '<p class="l1">다. 모니터링 내용</p><p class="l2">1) 성과지표 달성률 현황 및 분석</p>';
+    h += '<h3>1. 성과지표 달성률 현황</h3>';
     h += '<div class="gd-box"><div class="gd-chart">' + chartSvg(a.r.indices) + '</div><div class="gd-side">' +
       sideNotes.map(function (t) { return '<p>- ' + esc(t) + '</p>'; }).join('') + '</div></div>';
     h += '<p class="l3">- 성과지표 달성률 요약 : ' + esc(summary) + '</p>';
-    h += '<p class="l3">- 세부성과지표 달성현황 분석</p>';
+
+    h += '<h3>2. 세부성과지표 달성현황 분석</h3>';
     h += an.lines.map(function (t) { return '<p class="l4">○ ' + esc(t) + '</p>'; }).join('');
 
-    h += '<p class="l3 gd-gap">- 세부성과지표 달성현황 (' + esc(K.dotDate(m.asOfDate)) + ' 기준)</p>';
+    h += '<h3>3. 세부성과지표 달성현황 <span>(' + esc(K.dotDate(m.asOfDate)) + ' 기준)</span></h3>';
     h += '<table class="gd-table"><thead><tr><th scope="col">혁신지수</th><th scope="col">세부성과지표</th><th scope="col">' + esc(year) + ' 목표</th><th scope="col">실적</th><th scope="col">달성률</th><th scope="col">관리부서</th></tr></thead><tbody>';
     a.r.indices.forEach(function (ix) {
       ix.items.forEach(function (it, k) {
@@ -108,35 +97,22 @@
       });
     });
     h += '</tbody></table>';
-    h += '<p class="gd-end">붙임 : ' + esc(year) + '학년도 전문대학 혁신지원사업 ' + esc(qLabel) + ' 성과지표 달성현황 1부.&nbsp;&nbsp;끝.</p>';
-    h += '</div>';
-
-    h += '<table class="gd-sign"><tbody><tr><th scope="row">★담당</th><td></td><th scope="row">행정책임</th><td></td><th scope="row">IR센터장</th><td></td></tr></tbody></table>';
-    h += '<div class="gd-foot"><p>협조자</p><p>시행 IR센터-&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;(&nbsp;' + esc(K.clockText(now).slice(0, 10)) + '.&nbsp;)&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;접수</p>' +
-      '<p>우 42601&nbsp;&nbsp;대구광역시 달서구 달서대로 675 / http://www.kmcu.ac.kr</p></div>';
-    h += '<p class="gd-note">성과관리 시스템 자료로 ' + esc(written) + '에 자동 작성한 초안입니다. 결재 상신 전 수치와 문구를 확인해 주세요.</p>';
+    h += '<p class="gd-note">성과관리 시스템 자료로 자동 작성한 요약입니다. 보고 전 수치와 문구를 확인해 주세요.</p>';
     h += '</div>';
 
     /* 메일·메신저용 텍스트 */
     var t = [];
-    t.push('제목 : ' + subject);
+    t.push(subject);
+    t.push('자료 ' + m.dataBasis + ', 작성 ' + written);
     t.push('');
-    if (m.reportRef) t.push('1. 관련 : ' + m.reportRef);
-    t.push((m.reportRef ? 2 : 1) + '. ' + year + '학년도 전문대학 혁신지원사업 ' + qLabel + ' 성과지표 모니터링 및 분석결과를 다음과 같이 보고합니다.');
-    t.push('  가. 목적');
-    t.push('    1) IR센터 중심의 혁신지원사업 프로그램 성과 분석 및 관리, 환류 체계 강화');
-    t.push('    2) 지속적인 사업 모니터링을 통한 사업 성과 창출의 수월성 및 지속성 확보');
-    t.push('  나. 개요');
-    t.push('    1) 데이터 : 부서별 성과지표 실적 입력 자료(성과관리 시스템, ' + m.dataBasis + ')');
-    t.push('    2) 모니터링 기간 : ' + period);
-    t.push('  다. 모니터링 내용');
-    t.push('    1) 성과지표 달성률 현황 및 분석');
-    sideNotes.forEach(function (x) { t.push('      - ' + x); });
-    t.push('      - 성과지표 달성률 요약 : ' + summary);
-    t.push('      - 세부성과지표 달성현황 분석');
-    an.lines.forEach(function (x) { t.push('        ○ ' + x); });
+    t.push('1. 성과지표 달성률 현황');
+    sideNotes.forEach(function (x) { t.push('  - ' + x); });
+    t.push('  - 성과지표 달성률 요약 : ' + summary);
+    t.push('');
+    t.push('2. 세부성과지표 달성현황 분석');
+    an.lines.forEach(function (x) { t.push('  ○ ' + x); });
     if (location.protocol !== 'file:') { t.push(''); t.push('성과관리 시스템: ' + location.origin + location.pathname.replace(/[^/]*$/, '')); }
-    t.push('※ 성과관리 시스템 자료로 자동 작성한 초안입니다.');
+    t.push('※ 성과관리 시스템 자료로 자동 작성한 요약입니다.');
 
     return { html: h, text: t.join('\n'), subject: subject };
   }
@@ -236,7 +212,7 @@
       var blob = new Blob(['﻿' + current.text.replace(/\n/g, '\r\n')], { type: 'text/plain;charset=utf-8' });
       var link = document.createElement('a');
       link.href = URL.createObjectURL(blob);
-      link.download = '성과지표_모니터링_결과보고_' + K.clockText(new Date()).slice(0, 10).replace(/\./g, '') + '.txt';
+      link.download = '성과지표_모니터링_요약_' + K.clockText(new Date()).slice(0, 10).replace(/\./g, '') + '.txt';
       document.body.appendChild(link); link.click(); link.remove();
       setTimeout(function () { URL.revokeObjectURL(link.href); }, 1000);
       menu.hidden = true;
