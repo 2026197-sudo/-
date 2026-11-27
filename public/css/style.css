@@ -707,3 +707,9 @@ table.sub-table { min-width: 760px; font-size: 13px; border: 1px solid var(--div
 .sub-table td:nth-child(3), .sub-table td:nth-child(4) { white-space: nowrap; }
 .sub-table td.r.strong { font-size: 14px; }
 .sub-table tbody th[scope="row"] { min-width: 210px; }
+/* 세부운영지수 표: 행마다 가로줄로 구분 */
+.sub-table tbody tr > * { border-top: 1px solid var(--border) !important; }
+.sub-table tbody tr:first-child > * { border-top: none !important; }
+.sub-table thead th { border-bottom: 1px solid var(--border); }
+.sub-table tbody tr:nth-child(even) > * { background: var(--surface-2); }
+.sub-table tfoot > tr > * { border-top: 2px solid var(--heading) !important; }
