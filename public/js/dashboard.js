@@ -52,6 +52,23 @@
       (o.cap ? '<span class="cap">' + esc(o.cap) + '</span>' : '') + '</div></div>';
   }
 
+  /* 분기 실적 입력 알림 */
+  function alarmTitle(a) {
+    var when = a.days > 0 ? 'D-' + a.days : a.days === 0 ? '오늘 마감 기준일' : '분기 종료 ' + (-a.days) + '일 지남';
+    return a.q + '분기 실적값 입력 (' + when + ')';
+  }
+  function alarmBox(a) {
+    var s = (window.KPIAuth && KPIAuth.session && KPIAuth.session()) || null, u = s && s.user;
+    var period = a.q + '분기(' + a.m1 + '~' + a.m3 + '월)';
+    var lead = a.days > 0 ? K.dotDate(a.end) + '이 ' + period + ' 마지막 날입니다(D-' + a.days + ').'
+      : a.days === 0 ? '오늘(' + K.dotDate(a.end) + ')은 ' + period + ' 마지막 날입니다.'
+      : period + '이 ' + K.dotDate(a.end) + '에 끝났습니다(' + (-a.days) + '일 지남).';
+    var who = u && !u.admin && u.dept ? '<b>' + esc(u.dept) + '</b> 관리 지표의 ' : '각 관리부서는 담당 지표의 ';
+    return '<div class="alarm" role="alert"><span class="alarm-dot" aria-hidden="true"></span><div><b>' + esc(alarmTitle(a)) + '</b>' +
+      '<p>' + esc(lead) + ' ' + who + period + ' 실적값을 <a href="admin.html">실적 입력</a>에서 입력해 주세요.' +
+      (u && u.admin ? ' 입력이 끝나면 기본 정보의 실적 기준일을 ' + esc(K.dotDate(a.end)) + '로 바꾸면 알림이 사라집니다.' : '') + '</p></div></div>';
+  }
+
   function render(data) {
     K.normalize(data);
     window.KPI_CURRENT = data;
@@ -61,6 +78,8 @@
     var asOf = K.dotDate(m.asOfDate);
     var html = '';
 
+    var now = new Date();
+    var alarm = K.inputAlarm(data, now);
     var o = r.overall;
     var elPct = elapsed === null ? null : elapsed * 100;
     var depts = K.deptSummary(r, elapsed);
@@ -77,6 +96,7 @@
       '<p class="hero-line">' + esc(asOf) + ' 기준, 측정기간 ' + pct(elPct) + ' 경과 · 자료 ' + esc(m.dataBasis) + '</p>' +
       (weak.length ? '<a class="hero-alert" href="#dept"><span class="mark mark-' + weak[0].level + '"></span>실적 확인필요 부서 ' + weak.length + '곳 · ' +
         esc(weak.map(function (g) { return g.dept; }).join(', ')) + '</a>' : '') +
+      (alarm ? '<a class="hero-alarm" href="#schedule"><span class="alarm-dot" aria-hidden="true"></span>' + esc(alarmTitle(alarm)) + '</a>' : '') +
       '</div>' +
       '<div class="hero-side">' +
       donut({ size: 150, stroke: 12, prog: o.prog, state: 'actual', band: o.band, label: '4개 혁신지수 평균 달성률', elapsed: elapsed, cap: '평균 달성률' }) +
@@ -195,8 +215,8 @@
     });
     if (!auto.notes.length && !data.notes.length) html += '<li class="dim">현재 특별한 유의사항이 없습니다.</li>';
     html += '</ol></div><div id="schedule" class="panel flat"><h2>측정 기준일과 남은 일정</h2><div>';
-    var now = new Date();
     var sch = K.scheduleOf(data, r, now);
+    if (alarm) html += alarmBox(alarm, true);
     sch.open.forEach(function (e) {
       var d = K.daysUntil(e.date, now), dd = '';
       if (d !== null) dd = d > 0 ? ' (D-' + d + ')' : ' (오늘)';
@@ -240,6 +260,8 @@
     html += '</div></div></div></section>';
 
     document.getElementById('app').innerHTML = html;
+    var navNotes = document.querySelector('.nav a[href="#notes"]');
+    if (navNotes) navNotes.classList.toggle('has-alarm', !!alarm);
     showPane();
     var up = m.updatedAt ? new Date(m.updatedAt) : null;
     document.getElementById('updated').textContent = '최종 수정 ' + (up && !isNaN(up) ? K.clockText(up).replace(/:\d\d KST$/, '') : '—') + (m.updatedBy ? ' (' + m.updatedBy + ')' : '');
