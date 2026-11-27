@@ -427,3 +427,62 @@ body.locked #excelBtn, body.locked #reportBtn { display: none !important; }
 .gate-form .check { display: flex; align-items: center; gap: 8px; font-size: 14px; color: var(--muted); cursor: pointer; }
 .gate-form .check input { width: 18px; height: 18px; accent-color: var(--brand-blue); }
 .pin-reset { color: var(--warn-ink, #8a5a00); font-weight: 600; }
+
+/* 요약보고서: 학교 결과보고(기안문) 형식 — 화면·다크 모드와 관계없이 흰 종이에 검은 글씨 */
+.report-dialog .report { background: #E9ECF1; }
+.gd { max-width: 760px; margin: 0 auto; background: #FFFFFF; color: #111111; padding: 36px 44px 28px; font-size: 14px; line-height: 1.75; box-shadow: 0 1px 4px rgba(0,0,0,.12); }
+.gd p { margin: 0; }
+.gd table th, .gd table td { background: none; color: #111111; border-top: none; height: auto; }
+.gd table { min-width: 0; }
+.gd-top { display: grid; grid-template-columns: 120px 1fr 120px; align-items: center; margin-bottom: 14px; }
+.gd-top img { height: 34px; width: auto; }
+.gd-top h2 { margin: 0; text-align: center; font-family: var(--font-title); font-size: 30px; font-weight: 700; letter-spacing: .08em; color: #000000; }
+.gd-meta { width: 100%; border-collapse: collapse; font-size: 15px; }
+.gd-meta th, .gd-meta td { border: none; font-size: 15px; line-height: 1.6; }
+.gd-meta th { width: 72px; padding: 3px 0 3px 8px; text-align: left; font-weight: 400; white-space: nowrap; vertical-align: top; }
+.gd-meta td { padding: 3px 0; }
+.gd-meta .gd-subject th, .gd-meta .gd-subject td { padding-bottom: 6px; border-bottom: 2px solid #000000; }
+.gd-body { padding-top: 10px; font-size: 13.5px; }
+.gd-body .l1 { padding-left: 1.2em; }
+.gd-body .l2 { padding-left: 2.6em; text-indent: -0.9em; }
+.gd-body .l3 { padding-left: 2.6em; margin-top: 4px; }
+.gd-body .l4 { padding-left: 4.4em; text-indent: -1.1em; }
+.gd-gap { margin-top: 10px !important; }
+.gd-box { display: grid; grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr); margin: 6px 0 8px 2.2em; border: 1px solid #000000; }
+.gd-chart { padding: 6px; border-right: 1px solid #000000; }
+.gd-chart svg { display: block; width: 100%; height: auto; }
+.gd-side { padding: 10px 12px; display: flex; flex-direction: column; justify-content: center; gap: 10px; font-size: 13px; }
+.gd-table { width: calc(100% - 2.6em); margin: 4px 0 0 2.6em; border-collapse: collapse; font-size: 12.5px; }
+.gd-table th, .gd-table td { border: 1px solid #555555; padding: 4px 6px; vertical-align: middle; }
+.gd-table th, .gd-table td { border: 1px solid #555555 !important; }
+.gd-table thead th { background: #F0F0F0 !important; font-weight: 700; text-align: center; }
+.gd-table tbody th { font-weight: 700; text-align: center; background: #FAFAFA !important; }
+.gd-table tbody th span { font-weight: 400; color: #444444; }
+.gd-table .r { text-align: right; white-space: nowrap; }
+.gd-table .low { color: #C00000; font-weight: 700; }
+.gd-end { margin-top: 14px !important; padding-left: 1.2em; }
+.gd-sign { width: 100%; margin-top: 40px; border-collapse: collapse; border-top: 6px solid #A6A6A6; font-size: 13px; }
+.gd-sign th, .gd-sign td { border: none; }
+.gd-sign th { width: 70px; padding: 14px 0 22px; text-align: left; font-weight: 400; white-space: nowrap; }
+.gd-sign td { padding: 14px 8px 22px; }
+.gd-foot { margin-top: 18px; font-size: 12.5px; display: flex; flex-direction: column; gap: 4px; }
+.gd-foot p:first-child { margin-bottom: 12px; }
+.gd-note { margin-top: 18px !important; padding-top: 8px; border-top: 1px dashed #BBBBBB; font-size: 11.5px; color: #666666; }
+@media (max-width: 760px) {
+  .gd { padding: 22px 16px; }
+  .gd-top { grid-template-columns: 70px 1fr 0; }
+  .gd-top img { height: 24px; }
+  .gd-top h2 { font-size: 22px; }
+  .gd-box { grid-template-columns: 1fr; margin-left: 0; }
+  .gd-chart { border-right: none; border-bottom: 1px solid #000000; }
+  .gd-table { width: 100%; margin-left: 0; font-size: 11.5px; }
+}
+@media print {
+  body.print-report .gd { box-shadow: none; padding: 0; max-width: none; }
+  body.print-report .gd-note { display: none; }
+  .gd-box, .gd-table tr, .gd-sign { break-inside: avoid; }
+}
+.gd .gd-meta th[scope], .gd .gd-meta td { padding: 2px 0 2px 8px; border: none; }
+.gd .gd-meta .gd-subject th, .gd .gd-meta .gd-subject td { padding-bottom: 6px; border-bottom: 2px solid #000000; }
+.gd .gd-sign th[scope] { padding: 14px 0 22px; border: none; }
+.gd .gd-table th, .gd .gd-table td { padding: 4px 6px; }
