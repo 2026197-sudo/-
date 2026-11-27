@@ -288,9 +288,9 @@
     }
     if (next) {
       var isEnd = next.end === m.periodEnd;
-      list.push({ date: next.end, auto: true, owner: '기획팀',
-        name: next.q + '분기 실적(' + next.m1 + '~' + next.m3 + '월) 기준일' + (isEnd ? ', 측정기간 종료' : ''),
-        desc: '분기 실적 수합' });
+      list.push({ date: next.end, auto: true, owner: '각 관리부서',
+        name: next.q + '분기 실적(' + next.m1 + '~' + next.m3 + '월) 기준일 · 부서 실적값 입력' + (isEnd ? ', 측정기간 종료' : ''),
+        desc: '분기 마지막 날 기준으로 각 부서가 [실적 입력]에서 실적값 입력' });
       if (isEnd) return addPending(list);
     }
     if (m.periodEnd) list.push({ date: m.periodEnd, auto: true, owner: '기획팀', name: '측정기간 종료', desc: '연차 실적 집계 마감' });
@@ -306,6 +306,23 @@
       });
       return arr;
     }
+  }
+
+  /* 분기 실적 입력 알림: 분기 마지막 날 3일 전부터 종료 후 14일까지,
+     실적 기준일(asOfDate)이 아직 그 분기로 바뀌지 않았으면 알림을 띄웁니다. */
+  var ALARM_BEFORE = 3, ALARM_AFTER = 14;
+  function inputAlarm(d, now) {
+    var m = d.meta || {}, s = String(m.periodStart || '').split('-').map(Number);
+    if (s.length < 2 || !s[0]) return null;
+    for (var q = 0; q < 4; q++) {
+      var f = addMonths(s[0], s[1], q * 3), l = addMonths(s[0], s[1], q * 3 + 2);
+      var end = ymd(l.y, l.m, lastDay(l.y, l.m));
+      var days = daysUntil(end, now);
+      if (days === null || days > ALARM_BEFORE || days < -ALARM_AFTER) continue;
+      if (String(m.asOfDate || '') >= end) return null; // 이미 이 분기 실적으로 바뀜
+      return { q: q + 1, m1: f.m, m3: l.m, end: end, days: days, last: end === m.periodEnd };
+    }
+    return null;
   }
 
   /* 일정 정리: 남은 일정(날짜순)과 끝난 일정(완료·자동 완료·지난 일정) */
@@ -528,6 +545,6 @@
     clockText: clockText, dotDate: dotDate, elapsedRatio: elapsedRatio, daysUntil: daysUntil,
     initTheme: initTheme, toggleTheme: toggleTheme, startClock: startClock,
     normalize: normalize, insights: insights, josa: josa, reportAnalysis: reportAnalysis, reportSummary: reportSummary,
-    linkDone: linkDone, findItem: findItem, scheduleOf: scheduleOf, quarterOf: quarterOf, SCHEMA: SCHEMA, deptSummary: deptSummary
+    linkDone: linkDone, findItem: findItem, scheduleOf: scheduleOf, inputAlarm: inputAlarm, quarterOf: quarterOf, SCHEMA: SCHEMA, deptSummary: deptSummary
   };
 })(typeof window !== 'undefined' ? window : globalThis);

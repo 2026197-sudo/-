@@ -169,6 +169,14 @@
 
   function fill() {
     var m = data.meta;
+    var al = K.inputAlarm(data, new Date()), box = document.getElementById('alarmNote');
+    if (al) {
+      var period = al.q + '분기(' + al.m1 + '~' + al.m3 + '월)';
+      box.innerHTML = '<span class="alarm-dot" aria-hidden="true"></span><div><b>' + esc(period) + ' 실적값 입력 기간입니다</b><p>' +
+        esc(K.dotDate(al.end)) + (al.days > 0 ? '이 분기 마지막 날입니다(D-' + al.days + ').' : al.days === 0 ? ', 오늘이 분기 마지막 날입니다.' : '에 분기가 끝났습니다(' + (-al.days) + '일 지남).') +
+        ' ' + (me.admin ? '부서 입력이 끝나면 기본 정보의 실적 기준일을 ' + esc(K.dotDate(al.end)) + '로 바꿔 주세요. 그러면 알림이 사라집니다.' : esc(me.dept) + ' 관리 지표의 실적값을 아래에 입력하고 저장해 주세요.') + '</p></div>';
+      box.hidden = false;
+    } else box.hidden = true;
     ['title', 'badge', 'dataBasis', 'asOfDate'].forEach(function (k) {
       document.getElementById('m-' + k).value = m[k] || '';
     });

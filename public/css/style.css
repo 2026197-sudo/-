@@ -600,3 +600,14 @@ body.locked #excelBtn, body.locked #reportBtn { display: none !important; }
 :root[data-theme="dark"] { --focus: #8FA9E6; }
 @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) { --focus: #8FA9E6; } }
 #msg:empty { display: none; }
+
+/* 분기 실적 입력 알림 */
+.alarm { display: flex; gap: 12px; align-items: flex-start; padding: 14px 16px; margin: 0 0 6px; border: 1px solid var(--st-red); border-left-width: 4px; border-radius: var(--radius); background: var(--surface); }
+.alarm b { color: var(--heading); font-size: 15px; }
+.alarm p { margin: 2px 0 0; font-size: 13.5px; color: var(--muted); }
+.alarm a { font-weight: 700; }
+.alarm-dot { flex: none; width: 9px; height: 9px; margin-top: 7px; border-radius: 50%; background: var(--st-red); }
+.hero-alarm { display: inline-flex; align-items: center; gap: 8px; width: fit-content; color: var(--heading); font-size: 14px; font-weight: 600; text-decoration: underline; text-decoration-color: var(--border); text-underline-offset: 4px; }
+.hero-alarm .alarm-dot { margin-top: 0; }
+.hero-alarm:hover { text-decoration-color: var(--st-red); }
+.nav a.has-alarm::after { content: ""; display: inline-block; width: 7px; height: 7px; margin-left: 6px; border-radius: 50%; background: #FF6B70; vertical-align: 2px; }
