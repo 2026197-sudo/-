@@ -680,7 +680,7 @@ table.sub-table { min-width: 760px; font-size: 13px; border: 1px solid var(--div
 .sub-table thead th { padding: 7px 10px; font-size: 12px; background: var(--surface-2); }
 .sub-table th, .sub-table td { padding: 7px 10px !important; vertical-align: top; }
 .sub-table tbody th[scope="row"] { background: none; font-weight: 500; color: var(--ink); white-space: normal; border-top: 1px solid var(--divider); }
-.sub-table td.ev { white-space: pre-line; color: var(--muted); font-size: 12.5px; max-width: 360px; }
+.sub-table td.ev { white-space: pre-line; color: var(--muted); font-size: 12.5px; min-width: 300px; }
 .sub-table tfoot th, .sub-table tfoot td { border-top: 1px solid var(--border); background: var(--surface-2); font-weight: 700; color: var(--heading); }
 .sub-table .r { text-align: right; white-space: nowrap; }
 @media (max-width: 760px) {

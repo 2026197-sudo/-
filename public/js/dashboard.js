@@ -211,16 +211,14 @@
           '<div><dt>2025 실적</dt><dd>' + cell(it.y1Actual, it.unit) + '</dd></div>' +
           '<div><dt>2027 목표</dt><dd>' + cell(it.targets.y3, it.unit) + '</dd></div>' +
           '<div><dt>관리부서</dt><dd class="txt">' + esc(it.dept) + (it.owner ? ' · ' + esc(it.owner) : '') + '</dd></div></dl>';
-        if (it.evidence || it.note) {
-          html += '<p class="kpi-meta">' + (it.evidence ? '<span><b>문서번호</b> ' + esc(it.evidence) + '</span>' : '') + (it.note ? '<span><b>비고</b> ' + esc(it.note) + '</span>' : '') + '</p>';
-        }
+        if (it.note) html += '<p class="kpi-meta"><span><b>비고 (문서번호·증빙)</b> ' + esc(it.note) + '</span></p>';
         if ((it.subs || []).length) {
-          html += '<div class="table-scroll"><table class="sub-table"><thead><tr><th scope="col">세부운영지수</th><th scope="col" class="r">현재값</th><th scope="col">부서</th><th scope="col">담당</th><th scope="col">문서번호(증빙)</th><th scope="col">비고</th></tr></thead><tbody>';
+          html += '<div class="table-scroll"><table class="sub-table"><thead><tr><th scope="col">세부운영지수</th><th scope="col" class="r">현재값</th><th scope="col">부서</th><th scope="col">담당</th><th scope="col">비고 (문서번호·증빙)</th></tr></thead><tbody>';
           it.subs.forEach(function (sb) {
             html += '<tr><th scope="row">' + esc(sb.name) + '</th><td class="r strong">' + (sb.value === null || sb.value === undefined ? '<span class="dim">미입력</span>' : esc(fmt(sb.value))) + '</td>' +
-              '<td>' + esc(sb.dept) + '</td><td>' + esc(sb.owner || '') + '</td><td class="ev">' + esc(sb.evidence || '') + '</td><td class="ev">' + esc(sb.note || '') + '</td></tr>';
+              '<td>' + esc(sb.dept) + '</td><td>' + esc(sb.owner || '') + '</td><td class="ev">' + esc(sb.note || '') + '</td></tr>';
           });
-          html += '</tbody><tfoot><tr><th scope="row">' + (it.calc === 'ratio' ? '유지율 (B ÷ A × 100)' : '계') + '</th><td class="r strong">' + cell(it.current, it.unit) + '</td><td colspan="4"></td></tr></tfoot></table></div>';
+          html += '</tbody><tfoot><tr><th scope="row">' + (it.calc === 'ratio' ? '유지율 (B ÷ A × 100)' : '계') + '</th><td class="r strong">' + cell(it.current, it.unit) + '</td><td colspan="3"></td></tr></tfoot></table></div>';
         }
         html += '</div>';
       });
