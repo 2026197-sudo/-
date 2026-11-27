@@ -25,6 +25,7 @@
 // store 는 get(key, {type:"json"}) · set(key, text) · setJSON(key, value) · delete(key) 를 제공해야 합니다.
 import { createHmac, randomBytes, scryptSync, timingSafeEqual } from "node:crypto";
 import seed from "./seed.mjs";
+import { migrateSubs, applySubs } from "./subs.mjs";
 
 const KEY_CURRENT = "current";
 const KEY_INDEX = "history-index";
@@ -76,6 +77,13 @@ function validate(doc) {
       if (it.current !== null && it.current !== undefined && (typeof it.current !== "number" || !Number.isFinite(it.current))) {
         return `현재값은 숫자여야 합니다: ${it.name}`;
       }
+      if (it.subs !== undefined) {
+        if (!Array.isArray(it.subs) || it.subs.length > 30) return `세부운영지수 형식이 올바르지 않습니다: ${it.name}`;
+        for (const sb of it.subs) {
+          if (!sb || typeof sb !== "object" || typeof sb.name !== "string") return `세부운영지수 형식이 올바르지 않습니다: ${it.name}`;
+          if (sb.value !== null && sb.value !== undefined && (typeof sb.value !== "number" || !Number.isFinite(sb.value))) return `세부값은 숫자여야 합니다: ${sb.name}`;
+        }
+      }
     }
   }
   const isList = (v) => v === undefined || (Array.isArray(v) && v.length <= 200 && v.every((x) => x && typeof x === "object" && !Array.isArray(x)));
@@ -90,7 +98,9 @@ function validate(doc) {
 
 /* ---------- 저장소 도우미 ---------- */
 async function readCurrent(store) {
-  return (await store.get(KEY_CURRENT, { type: "json" })) || seed;
+  const doc = (await store.get(KEY_CURRENT, { type: "json" })) || JSON.parse(JSON.stringify(seed));
+  migrateSubs(doc); // 세부운영지수 표가 없으면 한 번 채움 (다음 저장 때 함께 저장됨)
+  return doc;
 }
 async function readIndex(store) {
   const idx = await store.get(KEY_INDEX, { type: "json" });
@@ -137,7 +147,10 @@ function splitDepts(s) {
 }
 function departmentsOf(doc) {
   const set = new Set();
-  (doc.indices || []).forEach((ix) => (ix.items || []).forEach((it) => splitDepts(it.dept).forEach((d) => set.add(d))));
+  (doc.indices || []).forEach((ix) => (ix.items || []).forEach((it) => {
+    splitDepts(it.dept).forEach((d) => set.add(d));
+    (it.subs || []).forEach((sb) => splitDepts(sb.dept).forEach((d) => set.add(d)));
+  }));
   return [...set].sort((a, b) => a.localeCompare(b, "ko"));
 }
 
@@ -220,20 +233,41 @@ function mergeForDept(current, submitted, dept, who) {
   const next = JSON.parse(JSON.stringify(current));
   const sub = {};
   (submitted.indices || []).forEach((ix) => (ix.items || []).forEach((it) => { sub[it.id] = it; }));
+  const txt = (v, n) => (typeof v === "string" ? v.slice(0, n) : undefined);
   const changed = [];
   next.indices.forEach((ix) => ix.items.forEach((it) => {
-    if (!splitDepts(it.dept).includes(dept)) return;
     const s = sub[it.id];
     if (!s) return;
-    const before = JSON.stringify([it.current, it.status, it.note]);
-    if (s.current === null || (typeof s.current === "number" && Number.isFinite(s.current))) it.current = s.current;
-    if (["actual", "pending", "missing"].includes(s.status)) it.status = s.status;
-    if (typeof s.note === "string") it.note = s.note.slice(0, 500);
-    if (JSON.stringify([it.current, it.status, it.note]) !== before) changed.push(it.short || it.name);
+    const ownItem = splitDepts(it.dept).includes(dept);
+    const mySubs = (it.subs || []).filter((sb) => splitDepts(sb.dept).includes(dept));
+    if (!ownItem && !mySubs.length) return; // 본인 부서와 관계없는 지표는 그대로
+    const snap = () => JSON.stringify([it.current, it.status, it.note || "", it.owner || "", it.evidence || "", (it.subs || []).map((x) => [x.value, x.owner || "", x.evidence || "", x.note || ""])]);
+    const before = snap();
+    if (ownItem) {
+      const hasSubs = Array.isArray(it.subs) && it.subs.length;
+      if (!hasSubs && (s.current === null || (typeof s.current === "number" && Number.isFinite(s.current)))) it.current = s.current;
+      if (["actual", "pending", "missing"].includes(s.status)) it.status = s.status;
+      if (txt(s.note, 500) !== undefined) it.note = txt(s.note, 500);
+      if (txt(s.owner, 40) !== undefined) it.owner = txt(s.owner, 40);
+      if (txt(s.evidence, 1000) !== undefined) it.evidence = txt(s.evidence, 1000);
+    }
+    // 세부운영지수: 행의 부서가 본인 부서인 것만 값·담당자·문서번호·비고 반영
+    const sentSubs = {};
+    (Array.isArray(s.subs) ? s.subs : []).forEach((sb) => { if (sb && sb.id) sentSubs[sb.id] = sb; });
+    mySubs.forEach((sb) => {
+      const x = sentSubs[sb.id];
+      if (!x) return;
+      if (x.value === null || (typeof x.value === "number" && Number.isFinite(x.value))) sb.value = x.value;
+      if (txt(x.owner, 40) !== undefined) sb.owner = txt(x.owner, 40);
+      if (txt(x.evidence, 1000) !== undefined) sb.evidence = txt(x.evidence, 1000);
+      if (txt(x.note, 500) !== undefined) sb.note = txt(x.note, 500);
+    });
+    applySubs(it);
+    if (snap() !== before) changed.push(it.short || it.name);
     // 값이 그대로여도 저장하면 '이번에 확인·입력함'으로 기록 (부서별 입력 현황용)
     it.inputAt = stamp;
     it.inputBy = who;
-    it.inputs = Object.assign({}, it.inputs || {}, { [dept]: { at: stamp, by: who } }); // 여러 부서가 함께 맡는 지표는 부서별로 기록
+    it.inputs = Object.assign({}, it.inputs || {}, { [dept]: { at: stamp, by: who } });
   }));
   return { next, changed };
 }
@@ -370,7 +404,8 @@ export async function handle(req, { store, ip, path: forcedPath, platform }) {
       const stamp = kstIso(), adminName = me.name === "관리자" ? "관리자" : `${me.name} (관리자)`;
       doc.indices.forEach((ix) => ix.items.forEach((it) => {
         const p = prev[it.id];
-        const same = p && JSON.stringify([p.current, p.status, p.note]) === JSON.stringify([it.current, it.status, it.note]);
+        applySubs(it);
+        const same = p && JSON.stringify([p.current, p.status, p.note, p.owner, p.evidence, p.subs]) === JSON.stringify([it.current, it.status, it.note, it.owner, it.evidence, it.subs]);
         if (p && p.inputs) it.inputs = p.inputs; else delete it.inputs;
         if (same) { if (p.inputAt) { it.inputAt = p.inputAt; it.inputBy = p.inputBy; } else { delete it.inputAt; delete it.inputBy; } }
         else { it.inputAt = stamp; it.inputBy = adminName; }

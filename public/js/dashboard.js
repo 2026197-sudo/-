@@ -188,39 +188,46 @@
     });
     html += '</div></section>';
 
-    /* 세부지표: 도넛 → 수치표 */
+    /* 세부지표: 혁신지수별 묶음 → 지표마다 달성률 막대·주요 수치 → 세부운영지수 표(담당·문서번호) */
     html += '<section id="detail" class="pane" data-pane="detail"><div class="sec-head"><div><h2>세부지표 달성 현황</h2>' +
-      '<div class="desc">2026 목표 대비 실적. 자료: ' + esc(m.dataBasis) + '</div></div></div>';
-    html += '<div class="group-grid">';
+      '<div class="desc">2026 목표 대비 실적 · 자료 ' + esc(m.dataBasis) + ' · 막대의 세로선은 ' + esc(asOf) + ' 기준 기간 경과율(' + pct(elPct) + ')</div></div></div>';
+    var cell = function (v, unit) { return v === null || v === undefined || v === '' ? '<span class="dim">—</span>' : esc(fmt(v)) + '<small>' + esc(unit) + '</small>'; };
     r.indices.forEach(function (ix) {
-      html += '<div class="group-card"><h3>' + esc(ix.name) + '</h3><div class="mini-row">';
+      html += '<article class="ix-block"><header class="ix-head"><h3>' + esc(ix.name) + '</h3>' +
+        '<span class="status">' + mark('actual', ix.band) + '달성률 <b>' + pct(ix.prog) + '</b></span>' +
+        '<span class="dim">지수 ' + ix.cur.toFixed(1) + ' / 목표 ' + ix.tgt.toFixed(1) + ' · 2025 달성률 ' + pct(ix.y1 && ix.y1.rate) + '</span></header>';
       ix.items.forEach(function (it) {
-        html += '<div class="mini">' + donut({ size: 84, stroke: 14, prog: it.prog, state: it.state, band: it.band, label: it.name, elapsed: elapsed }) +
-          '<span class="label">' + esc(it.short) + '</span></div>';
+        var w = it.prog === null ? 0 : Math.min(it.prog, 100);
+        var color = it.state === 'actual' && it.band ? 'var(--st-' + it.band.key + ')' : 'var(--none)';
+        var curTxt = it.state === 'missing' ? null : it.current;
+        html += '<div class="kpi-row"><div class="kpi-top">' +
+          '<div class="kpi-name"><b>' + esc(it.name) + '</b> <span class="dim">(' + esc(it.unit) + ', 반영비중 ' + esc(it.weight) + '%)</span></div>' +
+          '<span class="status">' + mark(it.state, it.band) + esc(statusLabel(it.state, it.band)) + '</span></div>' +
+          '<div class="kpi-bar-wrap"><div class="kpi-bar" role="img" aria-label="' + esc(it.name) + ' 달성률 ' + (it.prog === null ? statusLabel(it.state) : pct(it.prog)) + '">' +
+          '<i style="width:' + w.toFixed(1) + '%;background:' + color + '"></i>' + (elPct !== null ? '<em style="left:' + Math.min(elPct, 100).toFixed(1) + '%"></em>' : '') + '</div>' +
+          '<span class="kpi-rate">' + (it.prog === null ? esc(statusLabel(it.state)) : pct(it.prog)) + '</span></div>' +
+          '<dl class="kpi-nums"><div><dt>현재값</dt><dd class="strong">' + cell(curTxt, it.unit) + (it.state === 'pending' && K.num(it.current) !== null ? '<small> (잠정)</small>' : '') + '</dd></div>' +
+          '<div><dt>2026 목표</dt><dd>' + cell(it.targets.y2, it.unit) + '</dd></div>' +
+          '<div><dt>2025 실적</dt><dd>' + cell(it.y1Actual, it.unit) + '</dd></div>' +
+          '<div><dt>2027 목표</dt><dd>' + cell(it.targets.y3, it.unit) + '</dd></div>' +
+          '<div><dt>관리부서</dt><dd class="txt">' + esc(it.dept) + (it.owner ? ' · ' + esc(it.owner) : '') + '</dd></div></dl>';
+        if (it.evidence || it.note) {
+          html += '<p class="kpi-meta">' + (it.evidence ? '<span><b>문서번호</b> ' + esc(it.evidence) + '</span>' : '') + (it.note ? '<span><b>비고</b> ' + esc(it.note) + '</span>' : '') + '</p>';
+        }
+        if ((it.subs || []).length) {
+          html += '<div class="table-scroll"><table class="sub-table"><thead><tr><th scope="col">세부운영지수</th><th scope="col" class="r">현재값</th><th scope="col">부서</th><th scope="col">담당</th><th scope="col">문서번호(증빙)</th><th scope="col">비고</th></tr></thead><tbody>';
+          it.subs.forEach(function (sb) {
+            html += '<tr><th scope="row">' + esc(sb.name) + '</th><td class="r strong">' + (sb.value === null || sb.value === undefined ? '<span class="dim">미입력</span>' : esc(fmt(sb.value))) + '</td>' +
+              '<td>' + esc(sb.dept) + '</td><td>' + esc(sb.owner || '') + '</td><td class="ev">' + esc(sb.evidence || '') + '</td><td class="ev">' + esc(sb.note || '') + '</td></tr>';
+          });
+          html += '</tbody><tfoot><tr><th scope="row">' + (it.calc === 'ratio' ? '유지율 (B ÷ A × 100)' : '계') + '</th><td class="r strong">' + cell(it.current, it.unit) + '</td><td colspan="4"></td></tr></tfoot></table></div>';
+        }
+        html += '</div>';
       });
-      html += '</div></div>';
+      html += '</article>';
     });
-    html += '</div>';
-
-    html += '<div class="card table-card"><div class="table-scroll"><table><caption>세부지표 수치표</caption><thead><tr>' +
-      '<th scope="col">세부지표</th><th scope="col" class="r">비중</th><th scope="col" class="r">2025 실적</th><th scope="col" class="r">2026 목표</th>' +
-      '<th scope="col" class="r">현재값</th><th scope="col" class="r">달성률</th><th scope="col">상태</th><th scope="col">비고</th>' +
-      '<th scope="col">관리부서</th><th scope="col" class="r">2027 목표</th></tr></thead><tbody>';
-    r.indices.forEach(function (ix) {
-      html += '<tr class="group-row"><td colspan="10"><span class="grp-name">' + esc(ix.name) + '</span>' +
-        '<span class="grp-meta">지수 ' + ix.cur.toFixed(1) + ' / 목표 ' + ix.tgt.toFixed(1) + '</span><span class="grp-meta">달성률 ' + pct(ix.prog) + '</span></td></tr>';
-      ix.items.forEach(function (it) {
-        var cur = it.state === 'missing' ? '—' : fmt(it.current) + (it.state === 'pending' && K.num(it.current) !== null ? '*' : '');
-        html += '<tr><th scope="row" style="background:none;font-weight:500;color:var(--ink);white-space:normal">' + esc(it.name) + ' <span class="dim small">(' + esc(it.unit) + ')</span></th>' +
-          '<td class="r dim">' + esc(it.weight) + '%</td><td class="r dim">' + fmt(it.y1Actual) + '</td><td class="r dim">' + fmt(it.targets.y2) + '</td>' +
-          '<td class="r strong">' + cur + '</td><td class="r strong">' + (it.prog === null ? statusLabel(it.state) : pct(it.prog)) + '</td>' +
-          '<td><span class="status">' + mark(it.state, it.band) + esc(statusLabel(it.state, it.band)) + '</span></td>' +
-          '<td class="small dim">' + esc(it.note) + '</td><td class="small dim">' + esc(it.dept) + '</td><td class="r dim">' + fmt(it.targets.y3) + '</td></tr>';
-      });
-    });
-    html += '</tbody></table></div>' +
-      '<p class="foot-note">* 측정 전 지표(학년도 말 조사, 사후검사)는 달성률을 계산하지 않으며, 입력된 값은 근거 확인 전 값으로 혁신지수 계산에만 포함됩니다. 미입력 지표는 0으로 계산됩니다.</p>' +
-      '<p class="foot-note">계산 방법: 달성률은 2026 실적을 2026 목표로 나눈 값입니다. 혁신지수는 ' + esc(m.definitionBasis) + ' 산출식(실적 ÷ 2027 목표 × 반영비중)으로 계산하고, 평균 달성률은 4개 지수의 달성률을 각각 100%까지만 반영해 평균합니다.</p></div></section>';
+    html += '<p class="foot-note">달성률은 2026 실적을 2026 목표로 나눈 값입니다. 혁신지수는 ' + esc(m.definitionBasis) + ' 산출식(실적 ÷ 2027 목표 × 반영비중)으로 계산하고, 평균 달성률은 4개 지수의 달성률을 각각 100%까지만 반영해 평균합니다. ' +
+      '측정 전 지표는 달성률을 계산하지 않으며 입력값은 혁신지수 계산에만 포함됩니다. 미입력 지표는 0으로 계산됩니다. 세부운영지수가 있는 지표의 현재값은 세부값의 합계(재학생 수 유지율은 B ÷ A × 100)로 자동 계산됩니다.</p></section>';
 
     /* 확인사항·일정: 지표별 확인사항(자동, 지표당 한 줄) + 해석 참고(직접 입력) + 일정 + 실적 파일·정의서 확인 */
     var fdOpen = [], fdDone = [], fdByItem = {};
