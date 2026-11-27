@@ -153,7 +153,25 @@
       html += '<b>실적 확인이 필요한 부서가 없습니다.</b> 모든 부서의 측정 지표가 달성률 60% 이상이고 기간 경과율을 넘었습니다.';
     }
     if (need.length) html += '<span class="dept-need">미입력 지표가 있는 부서: ' + need.map(function (g) { return esc(g.dept); }).join(', ') + '</span>';
-    html += '</div><div class="dept-grid">';
+    html += '</div>';
+
+    /* 부서별 실적 입력 현황 */
+    var ist = K.inputStatus(data, r, now);
+    if (ist) {
+      var doneN = ist.list.filter(function (g) { return g.level === 'done'; }).length;
+      html += '<div class="input-status"><div class="input-head"><h3>' + ist.q + '분기(' + ist.m1 + '~' + ist.m3 + '월) 실적 입력 현황</h3>' +
+        '<span class="desc">' + esc(K.dotDate(ist.since)) + ' 이후 저장 기준 · ' + ist.list.length + '개 부서 중 ' + doneN + '개 입력 완료</span></div><ul>';
+      ist.list.forEach(function (g) {
+        var lab = g.level === 'done' ? '입력 완료' : g.level === 'part' ? '일부 입력' : '미입력';
+        var missing = g.items.filter(function (x) { return !x.ok; }).map(function (x) { return x.name; });
+        html += '<li class="in-' + g.level + '"><span class="in-dot" aria-hidden="true"></span><span class="in-dept">' + esc(g.dept) + '</span>' +
+          '<span class="in-state">' + lab + ' <span class="dim">' + g.done + '/' + g.items.length + '</span></span>' +
+          '<span class="in-last dim">' + (g.last ? '최근 ' + esc(K.clockText(new Date(g.last)).slice(0, 10)) + (g.by ? ' · ' + esc(g.by) : '') : '입력 기록 없음') +
+          (missing.length && g.level === 'part' ? ' · 남은 지표: ' + esc(missing.join(', ')) : '') + '</span></li>';
+      });
+      html += '</ul></div>';
+    }
+    html += '<div class="dept-grid">';
     depts.forEach(function (g, gi) {
       html += '<article class="card dept-card dept-' + g.level + '" id="dept-' + gi + '">' +
         '<div class="dept-head"><h3>' + esc(g.dept) + '</h3><span class="status dept-status">' +
@@ -204,17 +222,35 @@
       '<p class="foot-note">* 측정 전 지표(학년도 말 조사, 사후검사)는 달성률을 계산하지 않으며, 입력된 값은 근거 확인 전 값으로 혁신지수 계산에만 포함됩니다. 미입력 지표는 0으로 계산됩니다.</p>' +
       '<p class="foot-note">계산 방법: 달성률은 2026 실적을 2026 목표로 나눈 값입니다. 혁신지수는 ' + esc(m.definitionBasis) + ' 산출식(실적 ÷ 2027 목표 × 반영비중)으로 계산하고, 평균 달성률은 4개 지수의 달성률을 각각 100%까지만 반영해 평균합니다.</p></div></section>';
 
-    /* 유의사항(자동 + 직접 입력) + 일정 */
-    html += '<section id="notes" class="pane two-col" data-pane="notes"><div class="panel flat"><h2>해석 시 유의사항</h2><ol>';
-    auto.notes.forEach(function (n) {
-      html += '<li><b>' + esc(n.title) + '</b><span>' + esc(n.body) + '</span></li>';
+    /* 확인사항·일정: 지표별 확인사항(자동, 지표당 한 줄) + 해석 참고(직접 입력) + 일정 + 실적 파일·정의서 확인 */
+    var fdOpen = [], fdDone = [], fdByItem = {};
+    data.fixes.data.forEach(function (f) {
+      if (!f || (!f.item && !f.owner)) return;
+      if (f.done) fdDone.push(Object.assign({ why: '완료' }, f));
+      else if (K.linkDone(f, data)) fdDone.push(Object.assign({ why: '자동 완료' }, f));
+      else if (f.link && auto.items.some(function (e) { return e.id === f.link; })) (fdByItem[f.link] = fdByItem[f.link] || []).push(f); // 같은 지표 줄에 합침
+      else fdOpen.push(f);
     });
-    data.notes.forEach(function (n) {
-      if (!n || (!n.title && !n.body)) return;
-      html += '<li><b>' + esc(n.title) + '</b><span>' + esc(n.body) + '</span></li>';
+
+    html += '<section id="notes" class="pane" data-pane="notes"><div class="two-col">';
+    html += '<div class="panel flat"><h2>지표별 확인사항</h2><div class="desc">입력된 수치로 자동 작성합니다. 지표 하나에 한 줄씩, 확인할 내용과 할 일을 함께 적었습니다.</div><div>';
+    auto.items.forEach(function (e) {
+      var extra = (fdByItem[e.id] || []).map(function (f) { return '<span class="sub todo">실적 파일: ' + esc(f.item) + '</span>'; }).join('');
+      html += '<div class="list-row check-row"><span class="body">' +
+        '<span><span class="status check-label"><span class="mark mark-' + e.tag + '"></span>' + esc(e.label) + '</span> <b>' + esc(e.title) + '</b></span>' +
+        '<span class="sub">' + esc(e.body) + '</span>' +
+        '<span class="sub todo">할 일: ' + esc(e.todo) + (e.note ? ' · ' + esc(e.note) : '') + '</span>' + extra +
+        '</span><span class="owner">' + esc(e.who) + '</span></div>';
     });
-    if (!auto.notes.length && !data.notes.length) html += '<li class="dim">현재 특별한 유의사항이 없습니다.</li>';
-    html += '</ol></div><div id="schedule" class="panel flat"><h2>측정 기준일과 남은 일정</h2><div>';
+    if (!auto.items.length) html += '<p class="dim">확인이 필요한 지표가 없습니다.</p>';
+    var manual = data.notes.filter(function (n) { return n && (n.title || n.body); });
+    if (manual.length) {
+      html += '<h3 class="sub-head">해석 참고</h3>';
+      manual.forEach(function (n) {
+        html += '<div class="list-row"><span class="body"><span style="font-weight:600">' + esc(n.title) + '</span><span class="sub">' + esc(n.body) + '</span></span></div>';
+      });
+    }
+    html += '</div></div><div id="schedule" class="panel flat"><h2>일정</h2><div>';
     var sch = K.scheduleOf(data, r, now);
     if (alarm) html += alarmBox(alarm, true);
     sch.open.forEach(function (e) {
@@ -228,25 +264,10 @@
     html += doneList(sch.closed, function (e) {
       return '<span class="date">' + (e.date ? esc(K.dotDate(e.date)) : '—') + '</span><span class="body"><span>' + esc(e.name) + '</span></span>';
     }, '끝난 일정');
-    html += '</div></div></section>';
+    html += '</div></div></div>';
 
-    /* 필수확인사항: 자동 점검 + 직접 입력(완료 처리 가능) */
-    html += '<section id="fix" class="pane fix-wrap" data-pane="fix"><div class="panel flat"><h2>지표 점검</h2><div class="desc">입력된 수치로 자동 점검한 결과입니다.</div><div>';
-    auto.checks.forEach(function (c) {
-      html += '<div class="list-row"><span class="body"><span><span class="status check-label"><span class="mark mark-' + c.tag + '"></span>' + esc(c.label) + '</span> ' + esc(c.what) + '</span></span>' +
-        '<span class="owner">' + esc(c.who) + '</span></div>';
-    });
-    if (!auto.checks.length) html += '<p class="dim">점검이 필요한 지표가 없습니다.</p>';
-    html += '</div></div><div class="two-col">';
-
-    var fdOpen = [], fdDone = [];
-    data.fixes.data.forEach(function (f) {
-      if (!f || (!f.item && !f.owner)) return;
-      if (f.done) fdDone.push(Object.assign({ why: '완료' }, f));
-      else if (K.linkDone(f, data)) fdDone.push(Object.assign({ why: '자동 완료' }, f));
-      else fdOpen.push(f);
-    });
-    html += '<div class="panel flat"><h2>실적 파일 필수확인사항</h2><div class="desc">분기 실적 엑셀 기준</div><div>';
+    html += '<div class="two-col fix-wrap">';
+    html += '<div class="panel flat"><h2>실적 파일 확인사항</h2><div class="desc">분기 실적 엑셀 정리 (지표와 연결된 항목은 위 지표별 확인사항에 함께 표시)</div><div>';
     fdOpen.forEach(function (f) { html += '<div class="list-row"><span>' + esc(f.item) + '</span><span class="owner">' + esc(f.owner) + '</span></div>'; });
     if (!fdOpen.length) html += '<p class="dim">남은 확인사항이 없습니다.</p>';
     html += doneList(fdDone, function (f) { return '<span class="body"><span>' + esc(f.item) + '</span></span><span class="owner">' + esc(f.owner) + '</span>'; });
@@ -278,11 +299,11 @@
   }
 
   /* 메뉴(탭): 종합에는 시각화 대시보드만, 나머지는 메뉴를 눌렀을 때 하나씩 보입니다 */
-  var PANES = ['summary', 'dept', 'detail', 'notes', 'fix'];
+  var PANES = ['summary', 'dept', 'detail', 'notes'];
   function paneOf(hash) {
     var h = String(hash || '').replace(/^#/, '');
     if (h.indexOf('dept-') === 0) return 'dept';
-    if (h === 'schedule') return 'notes';
+    if (h === 'schedule' || h === 'fix') return 'notes';
     return PANES.indexOf(h) >= 0 ? h : 'summary';
   }
   var shownPane = null;

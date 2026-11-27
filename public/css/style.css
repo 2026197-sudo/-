@@ -611,3 +611,30 @@ body.locked #excelBtn, body.locked #reportBtn { display: none !important; }
 .hero-alarm .alarm-dot { margin-top: 0; }
 .hero-alarm:hover { text-decoration-color: var(--st-red); }
 .nav a.has-alarm::after { content: ""; display: inline-block; width: 7px; height: 7px; margin-left: 6px; border-radius: 50%; background: #FF6B70; vertical-align: 2px; }
+
+/* 확인사항·일정 */
+.check-row .body { gap: 2px; }
+.check-row b { color: var(--heading); font-weight: 700; }
+.check-row .todo { color: var(--ink); }
+.sub-head { margin: 22px 0 4px; font-size: 15px; color: var(--heading); }
+
+/* 부서별 실적 입력 현황 */
+.input-status { margin-bottom: 22px; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); }
+.input-head { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 4px 16px; padding: 14px 18px 10px; border-bottom: 1px solid var(--divider); }
+.input-head h3 { margin: 0; font-size: 15px; color: var(--heading); }
+.input-head .desc { font-size: 12.5px; color: var(--subtle); }
+.input-status ul { list-style: none; margin: 0; padding: 4px 18px 8px; display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 520px), 1fr)); column-gap: 32px; }
+.input-status li { display: grid; grid-template-columns: 12px 140px 110px 1fr; align-items: baseline; gap: 10px; padding: 8px 0; border-top: 1px solid var(--divider); font-size: 13.5px; }
+.input-status li:nth-child(-n+2) { border-top: none; }
+.in-dot { width: 9px; height: 9px; border-radius: 50%; border: 2px solid var(--none); align-self: center; }
+.in-done .in-dot { background: var(--st-green); border-color: var(--st-green); }
+.in-part .in-dot { background: linear-gradient(90deg, var(--st-yellow) 50%, transparent 50%); border-color: var(--st-yellow); }
+.in-none .in-dot { border-color: var(--st-red); }
+.in-dept { font-weight: 600; color: var(--heading); }
+.in-state { font-weight: 600; }
+.in-last { font-size: 12.5px; min-width: 0; }
+@media (max-width: 640px) {
+  .input-status li { grid-template-columns: 12px 1fr auto; }
+  .in-last { grid-column: 2 / -1; }
+  .input-status li:nth-child(2) { border-top: 1px solid var(--divider); }
+}
