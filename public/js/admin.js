@@ -391,7 +391,7 @@
       return;
     }
     var patch = diff(orig, c.next), who = c.next.meta.updatedBy;
-    var send = function (doc, base) { return post('api/data', Object.assign({}, doc, { _base: base || '' })); };
+    var send = function (doc, base) { return post('api/data', Object.assign({}, doc, { _base: base || '', _dept: document.getElementById('deptFilter').value || '' })); };
     send(c.next, orig.meta.updatedAt).then(function (res) {
       if (res.status !== 409) return { res: res, merged: false };
       // 다른 담당자가 먼저 저장함 → 최신 자료를 받아 내 변경분만 합쳐 다시 저장

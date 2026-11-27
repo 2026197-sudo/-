@@ -414,7 +414,8 @@ export async function handle(req, { store, ip, path: forcedPath, platform }) {
       if (body.error) return json(400, { error: body.error });
       const doc = body.value;
       const base = doc && typeof doc === "object" ? doc._base : undefined;
-      if (doc && typeof doc === "object") delete doc._base;
+      const asDept = doc && typeof doc === "object" ? String(doc._dept || "") : "";
+      if (doc && typeof doc === "object") { delete doc._base; delete doc._dept; }
       const err = validate(doc);
       if (err) return json(400, { error: err });
       const current = await readCurrent(store);
@@ -447,8 +448,9 @@ export async function handle(req, { store, ip, path: forcedPath, platform }) {
         if (p && p.inputs) it.inputs = p.inputs; else delete it.inputs;
         if (same) { if (p.inputAt) { it.inputAt = p.inputAt; it.inputBy = p.inputBy; } else { delete it.inputAt; delete it.inputBy; } }
         else { it.inputAt = stamp; it.inputBy = adminName; }
-        // 관리자가 저장하면 자기 담당 부서(예: 기획팀, IR센터) 지표는 값이 그대로여도 '입력(확인)'으로 기록
-        splitDepts(me.dept).forEach((d) => {
+        // 관리자가 저장하면 자기 담당 부서(예: 기획팀, IR센터)와 관리부서 필터에서 고른 부서의 지표는
+        // 일부만 고쳤거나 값이 그대로여도 그 부서 전체를 '입력(확인)'으로 기록
+        [...new Set(splitDepts(me.dept).concat(splitDepts(asDept)))].forEach((d) => {
           if (splitDepts(it.dept).includes(d) || (it.subs || []).some((sb) => splitDepts(sb.dept).includes(d))) {
             it.inputs = Object.assign({}, it.inputs || {}, { [d]: { at: stamp, by: `${me.name} (${d})` } });
           }
