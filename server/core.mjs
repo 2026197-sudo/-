@@ -25,7 +25,7 @@
 // store 는 get(key, {type:"json"}) · set(key, text) · setJSON(key, value) · delete(key) 를 제공해야 합니다.
 import { createHmac, randomBytes, scryptSync, timingSafeEqual } from "node:crypto";
 import seed from "./seed.mjs";
-import { migrateSubs, applySubs } from "./subs.mjs";
+import { migrateSubs, applySubs, mergeEvidence } from "./subs.mjs";
 
 const KEY_CURRENT = "current";
 const KEY_INDEX = "history-index";
@@ -100,6 +100,7 @@ function validate(doc) {
 async function readCurrent(store) {
   const doc = (await store.get(KEY_CURRENT, { type: "json" })) || JSON.parse(JSON.stringify(seed));
   migrateSubs(doc); // 세부운영지수 표가 없으면 한 번 채움 (다음 저장 때 함께 저장됨)
+  mergeEvidence(doc); // 문서번호(증빙)는 비고 칸에 합쳐 씀
   return doc;
 }
 async function readIndex(store) {
@@ -241,15 +242,14 @@ function mergeForDept(current, submitted, dept, who) {
     const ownItem = splitDepts(it.dept).includes(dept);
     const mySubs = (it.subs || []).filter((sb) => splitDepts(sb.dept).includes(dept));
     if (!ownItem && !mySubs.length) return; // 본인 부서와 관계없는 지표는 그대로
-    const snap = () => JSON.stringify([it.current, it.status, it.note || "", it.owner || "", it.evidence || "", (it.subs || []).map((x) => [x.value, x.owner || "", x.evidence || "", x.note || ""])]);
+    const snap = () => JSON.stringify([it.current, it.status, it.note || "", it.owner || "", (it.subs || []).map((x) => [x.value, x.owner || "", x.note || ""])]);
     const before = snap();
     if (ownItem) {
       const hasSubs = Array.isArray(it.subs) && it.subs.length;
       if (!hasSubs && (s.current === null || (typeof s.current === "number" && Number.isFinite(s.current)))) it.current = s.current;
       if (["actual", "pending", "missing"].includes(s.status)) it.status = s.status;
-      if (txt(s.note, 500) !== undefined) it.note = txt(s.note, 500);
+      if (txt(s.note, 1500) !== undefined) it.note = txt(s.note, 1500);
       if (txt(s.owner, 40) !== undefined) it.owner = txt(s.owner, 40);
-      if (txt(s.evidence, 1000) !== undefined) it.evidence = txt(s.evidence, 1000);
     }
     // 세부운영지수: 행의 부서가 본인 부서인 것만 값·담당자·문서번호·비고 반영
     const sentSubs = {};
@@ -259,8 +259,7 @@ function mergeForDept(current, submitted, dept, who) {
       if (!x) return;
       if (x.value === null || (typeof x.value === "number" && Number.isFinite(x.value))) sb.value = x.value;
       if (txt(x.owner, 40) !== undefined) sb.owner = txt(x.owner, 40);
-      if (txt(x.evidence, 1000) !== undefined) sb.evidence = txt(x.evidence, 1000);
-      if (txt(x.note, 500) !== undefined) sb.note = txt(x.note, 500);
+      if (txt(x.note, 1500) !== undefined) sb.note = txt(x.note, 1500);
     });
     applySubs(it);
     if (snap() !== before) changed.push(it.short || it.name);
@@ -405,7 +404,8 @@ export async function handle(req, { store, ip, path: forcedPath, platform }) {
       doc.indices.forEach((ix) => ix.items.forEach((it) => {
         const p = prev[it.id];
         applySubs(it);
-        const same = p && JSON.stringify([p.current, p.status, p.note, p.owner, p.evidence, p.subs]) === JSON.stringify([it.current, it.status, it.note, it.owner, it.evidence, it.subs]);
+        delete it.evidence; (it.subs || []).forEach((x) => delete x.evidence);
+        const same = p && JSON.stringify([p.current, p.status, p.note, p.owner, p.subs]) === JSON.stringify([it.current, it.status, it.note, it.owner, it.subs]);
         if (p && p.inputs) it.inputs = p.inputs; else delete it.inputs;
         if (same) { if (p.inputAt) { it.inputAt = p.inputAt; it.inputBy = p.inputBy; } else { delete it.inputAt; delete it.inputBy; } }
         else { it.inputAt = stamp; it.inputBy = adminName; }

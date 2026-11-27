@@ -198,7 +198,7 @@
     var html = '';
     var dis = function (ok) { return ok ? '' : ' disabled'; };
     data.indices.forEach(function (ix, i) {
-      html += '<tr class="group-row"><td colspan="8">' + esc(ix.name) + '</td></tr>';
+      html += '<tr class="group-row"><td colspan="7">' + esc(ix.name) + '</td></tr>';
       ix.items.forEach(function (it, j) {
         if (!minePart(it)) return; // 본인 부서와 관계없는 지표는 담당자 화면에 그리지 않음
         var id = 'i' + i + '_' + j, own = mine(it.dept), hasSubs = (it.subs || []).length > 0;
@@ -210,8 +210,7 @@
           '<td><select class="cell-select" id="' + id + '-st" aria-label="' + esc(it.name) + ' 상태"' + dis(own) + '>' +
           STATES.map(function (st) { return '<option value="' + st[0] + '"' + (it.status === st[0] ? ' selected' : '') + '>' + st[1] + '</option>'; }).join('') + '</select></td>' +
           '<td><input class="cell-input mid" id="' + id + '-owner" type="text" aria-label="' + esc(it.name) + ' 담당자" value="' + esc(it.owner || '') + '" maxlength="40"' + dis(own) + '></td>' +
-          '<td><textarea class="cell-input wide ev" id="' + id + '-ev" rows="1" aria-label="' + esc(it.name) + ' 문서번호(증빙)"' + dis(own) + '>' + esc(it.evidence || '') + '</textarea></td>' +
-          '<td><input class="cell-input wide" id="' + id + '-note" type="text" aria-label="' + esc(it.name) + ' 비고" value="' + esc(it.note) + '"' + dis(own) + '></td>' +
+          '<td><textarea class="cell-input wide ev" id="' + id + '-note" rows="1" aria-label="' + esc(it.name) + ' 비고(문서번호·증빙)"' + dis(own) + '>' + esc(it.note || '') + '</textarea></td>' +
           '<td><input class="cell-input wide" id="' + id + '-dept" type="text" aria-label="' + esc(it.name) + ' 관리부서" value="' + esc(it.dept) + '"' + (me.admin ? '' : ' readonly') + '></td></tr>';
         (it.subs || []).forEach(function (sb, k) {
           var sid = id + '_s' + k, ownSub = mine(sb.dept);
@@ -223,11 +222,10 @@
             '<td><input class="cell-input num sub-val" id="' + sid + '-val" type="number" step="any" value="' + (sb.value === null || sb.value === undefined ? '' : esc(sb.value)) + '"' + dis(ownSub) + '></td>' +
             '<td class="small dim">' + (ownSub ? '' : '해당 부서 입력') + '</td>' +
             '<td><input class="cell-input mid" id="' + sid + '-owner" type="text" aria-label="' + esc(sb.name) + ' 담당자" value="' + esc(sb.owner || '') + '" maxlength="40"' + dis(ownSub) + '></td>' +
-            '<td><textarea class="cell-input wide ev" id="' + sid + '-ev" rows="1" aria-label="' + esc(sb.name) + ' 문서번호(증빙)"' + dis(ownSub) + '>' + esc(sb.evidence || '') + '</textarea></td>' +
-            '<td><input class="cell-input wide" id="' + sid + '-note" type="text" aria-label="' + esc(sb.name) + ' 비고" value="' + esc(sb.note || '') + '"' + dis(ownSub) + '></td>' +
+            '<td><textarea class="cell-input wide ev" id="' + sid + '-note" rows="1" aria-label="' + esc(sb.name) + ' 비고(문서번호·증빙)"' + dis(ownSub) + '>' + esc(sb.note || '') + '</textarea></td>' +
             '<td><input class="cell-input wide" id="' + sid + '-dept" type="text" aria-label="' + esc(sb.name) + ' 부서" value="' + esc(sb.dept || '') + '"' + (me.admin ? '' : ' readonly') + '></td></tr>';
         });
-        if (me.admin) html += '<tr class="sub-row sub-add" data-dept="' + esc(itemDepts(it).join(', ')) + '"><td colspan="8"><button type="button" class="btn btn-sm" data-addsub="' + i + '_' + j + '">+ 세부운영지수 추가</button></td></tr>';
+        if (me.admin) html += '<tr class="sub-row sub-add" data-dept="' + esc(itemDepts(it).join(', ')) + '"><td colspan="7"><button type="button" class="btn btn-sm" data-addsub="' + i + '_' + j + '">+ 세부운영지수 추가</button></td></tr>';
       });
     });
     document.getElementById('rows').innerHTML = html;
@@ -257,7 +255,6 @@
         it.note = document.getElementById(id + '-note').value.trim();
         it.dept = document.getElementById(id + '-dept').value.trim();
         it.owner = document.getElementById(id + '-owner').value.trim();
-        it.evidence = document.getElementById(id + '-ev').value.trim();
         if (it.subs) {
           it.subs = it.subs.map(function (sb, k) {
             var sid = id + '_s' + k, el = document.getElementById(sid + '-val');
@@ -268,7 +265,6 @@
             return Object.assign({}, sb, {
               name: nameEl ? nameEl.value.trim() : sb.name, value: sv,
               owner: document.getElementById(sid + '-owner').value.trim(),
-              evidence: document.getElementById(sid + '-ev').value.trim(),
               note: document.getElementById(sid + '-note').value.trim(),
               dept: document.getElementById(sid + '-dept').value.trim()
             });
@@ -296,7 +292,7 @@
 
   /* 동시 저장 대비: 불러온 뒤 내가 바꾼 부분만 골라 최신 자료에 합칩니다 */
   var META_KEYS = ['title', 'badge', 'dataBasis', 'asOfDate'];
-  var ITEM_KEYS = ['current', 'status', 'note', 'dept', 'owner', 'evidence', 'subs'];
+  var ITEM_KEYS = ['current', 'status', 'note', 'dept', 'owner', 'subs'];
   var LIST_PATHS = [['notes'], ['events'], ['fixes', 'data'], ['fixes', 'doc']];
   function getPath(o, p) { return p.reduce(function (a, k) { return a ? a[k] : undefined; }, o); }
   function setPath(o, p, v) { var t = o; for (var i = 0; i < p.length - 1; i++) { t[p[i]] = t[p[i]] || {}; t = t[p[i]]; } t[p[p.length - 1]] = v; }
@@ -519,7 +515,7 @@
     data = c;
     var target = data.indices[+p[0]].items[+p[1]];
     target.subs = target.subs || [];
-    target.subs.push({ id: target.id + 'x' + Date.now().toString(36), name: '새 세부운영지수', value: null, dept: splitDepts(it.dept)[0] || '', owner: '', evidence: '', note: '' });
+    target.subs.push({ id: target.id + 'x' + Date.now().toString(36), name: '새 세부운영지수', value: null, dept: splitDepts(it.dept)[0] || '', owner: '', note: '' });
     fill();
   });
 

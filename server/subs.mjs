@@ -3,7 +3,8 @@
 // 저장된 자료에 세부운영지수가 없으면 처음 한 번 이 표를 넣습니다(meta.subsSource 로 표시).
 export const SUBS_SOURCE = "2026 자율성과지표 세부지수 현황";
 
-const S = (id, name, value, dept, owner, evidence = "", note = "") => ({ id, name, value, dept, owner, evidence, note });
+// 문서번호(증빙)와 비고는 한 칸(note)으로 씁니다
+const S = (id, name, value, dept, owner, evidence = "", note = "") => ({ id, name, value, dept, owner, note: [evidence, note].filter(Boolean).join("\n") });
 
 export const TEMPLATE = {
   f1: { subs: [
@@ -79,11 +80,21 @@ export function migrateSubs(doc) {
     if (t.subs && !(Array.isArray(it.subs) && it.subs.length)) it.subs = t.subs.map((s) => ({ ...s }));
     if (t.calc) it.calc = t.calc;
     if (t.owner && !it.owner) it.owner = t.owner;
-    if (t.evidence && !it.evidence) it.evidence = t.evidence;
-    if (t.note && !it.note) it.note = t.note;
+    const tn = [t.evidence, t.note].filter(Boolean).join("\n");
+    if (tn && !String(it.note || "").includes(tn)) it.note = [tn, it.note].filter(Boolean).join("\n");
     if (t.value !== undefined) it.current = t.value;
     applySubs(it);
   }));
   doc.meta.subsSource = SUBS_SOURCE;
   return true;
+}
+
+/* 예전 자료의 문서번호(evidence) 칸을 비고(note) 칸으로 합침 (여러 번 실행해도 같음) */
+export function mergeEvidence(doc) {
+  const join = (o) => {
+    if (!o || !o.evidence) { if (o) delete o.evidence; return; }
+    if (!String(o.note || "").includes(o.evidence)) o.note = [o.evidence, o.note].filter(Boolean).join("\n");
+    delete o.evidence;
+  };
+  (doc.indices || []).forEach((ix) => (ix.items || []).forEach((it) => { join(it); (it.subs || []).forEach(join); }));
 }
