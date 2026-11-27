@@ -70,52 +70,51 @@
     if (o.pending) prov.push('측정 전 ' + o.pending + '개');
     if (o.missing) prov.push('미입력 ' + o.missing + '개');
 
-    /* 히어로 */
+    /* 머리: 제목과 기준 정보 (왼쪽) · 평균 달성률 (오른쪽) */
     html += '<section id="summary" class="pane" data-pane="summary" aria-labelledby="pageTitle"><div class="hero">' +
-      '<div class="hero-main"><div class="hero-badges"><span class="pill-red">' + esc(m.badge) + '</span><span class="hero-sub">' + esc(m.program) + '</span></div>' +
+      '<div class="hero-main"><p class="hero-kicker">' + esc(m.badge) + ' · ' + esc(m.program) + '</p>' +
       '<h1 id="pageTitle">' + esc(m.title) + '</h1>' +
-      '<div class="chips"><span class="chip-solid">' + esc(asOf) + ' 기준 측정기간 ' + pct(elPct) + ' 경과</span>' +
-      '<span class="chip-glass">자료: ' + esc(m.dataBasis) + '</span></div>' +
-      (weak.length ? '<a class="hero-alert" href="#dept"><span class="mark mark-' + weak[0].level + '"></span>실적 확인필요 부서 ' + weak.length + '곳: ' +
+      '<p class="hero-line">' + esc(asOf) + ' 기준, 측정기간 ' + pct(elPct) + ' 경과 · 자료 ' + esc(m.dataBasis) + '</p>' +
+      (weak.length ? '<a class="hero-alert" href="#dept"><span class="mark mark-' + weak[0].level + '"></span>실적 확인필요 부서 ' + weak.length + '곳 · ' +
         esc(weak.map(function (g) { return g.dept; }).join(', ')) + '</a>' : '') +
       '</div>' +
       '<div class="hero-side">' +
-      donut({ size: 168, stroke: 11, prog: o.prog, state: 'actual', band: o.band, label: '4개 혁신지수 평균 달성률', elapsed: elapsed, hero: true, cap: '평균 달성률' }) +
-      '<div class="hero-stats"><span class="cap">4개 혁신지수 평균 (지수별 100% 상한)</span>' +
-      (o.lowest ? '<span>가장 낮은 지수 <strong>' + pct(o.lowest.prog) + '</strong> (' + esc(o.lowest.name.replace(/혁신지수$/, '')) + ')</span>' : '') +
-      '<span>지수 평균 <strong>' + o.cur.toFixed(1) + '</strong> / 목표 ' + o.tgt.toFixed(1) + '</span>' +
-      '<span>2025 평균 달성률 <strong>' + pct(m.y1AvgRate) + '</strong></span>' +
-      '<span class="status-pill">' + mark('actual', o.band) + esc(o.band.label) + '</span>' +
-      (prov.length ? '<span class="hero-warn">잠정치: ' + esc(prov.join(', ')) + ' 지표 포함</span>' : '') +
-      '</div></div></div>';
+      donut({ size: 150, stroke: 12, prog: o.prog, state: 'actual', band: o.band, label: '4개 혁신지수 평균 달성률', elapsed: elapsed, cap: '평균 달성률' }) +
+      '<dl class="hero-stats">' +
+      '<div><dt>판정</dt><dd><span class="status">' + mark('actual', o.band) + esc(o.band.label) + '</span></dd></div>' +
+      (o.lowest ? '<div><dt>가장 낮은 지수</dt><dd>' + esc(o.lowest.name.replace(/혁신지수$/, '')) + ' <b>' + pct(o.lowest.prog) + '</b></dd></div>' : '') +
+      '<div><dt>지수 평균</dt><dd><b>' + o.cur.toFixed(1) + '</b> / 목표 ' + o.tgt.toFixed(1) + '</dd></div>' +
+      '<div><dt>2025 평균 달성률</dt><dd><b>' + pct(m.y1AvgRate) + '</b></dd></div>' +
+      '</dl></div></div>' +
+      (prov.length ? '<p class="hero-warn">평균 달성률은 4개 지수를 각각 100%까지만 반영한 값이며, ' + esc(prov.join(', ')) + ' 지표가 포함된 잠정치입니다.</p>' : '');
 
-    /* 범례 */
-    html += '<div class="legend" role="note"><b>읽는 법</b>' +
-      '<span class="status"><span class="mark mark-deep"></span>우수 ' + th[2] + '% 이상</span>' +
-      '<span class="status"><span class="mark mark-green"></span>양호 ' + th[1] + '~' + th[2] + '%</span>' +
-      '<span class="status"><span class="mark mark-yellow"></span>주의 ' + th[0] + '~' + th[1] + '%</span>' +
-      '<span class="status"><span class="mark mark-red"></span>부진 ' + th[0] + '% 미만</span>' +
-      '<span class="status"><span class="mark mark-pending"></span>측정 전</span>' +
-      '<span class="status"><span class="mark mark-missing"></span>미입력</span>' +
-      '<span class="status"><span class="tick"></span>눈금: ' + esc(asOf) + ' 기준 기간 경과율</span></div>';
-
-    /* 혁신지수 카드 */
-    html += '<div class="grid-4">';
+    /* 혁신지수: 한 판에 4칸 */
+    html += '<div class="index-row">';
     r.indices.forEach(function (ix) {
       var flags = [];
       ix.items.forEach(function (it) {
         if (it.state === 'pending') flags.push(it.short + ' 측정 전');
         if (it.state === 'missing') flags.push(it.short + ' 미입력');
       });
-      html += '<article class="card index-card"><h3>' + esc(ix.name) + '</h3>' +
-        donut({ size: 120, stroke: 12, prog: ix.prog, state: 'actual', band: ix.band, label: ix.name, elapsed: elapsed, cap: '달성률' }) +
-        '<div class="index-meta"><span>지수 <strong>' + ix.cur.toFixed(1) + '</strong> / 목표 ' + ix.tgt.toFixed(1) + '</span>' +
-        '<span>2025 달성률 ' + pct(ix.y1 && ix.y1.rate) + '</span>' +
-        '<span class="status" style="justify-content:center">' + mark('actual', ix.band) + esc(ix.band.label) + '</span></div>' +
-        (flags.length ? '<span class="flag">잠정치: ' + esc(flags.join(', ')) + '</span>' : '') +
+      html += '<article class="index-card"><div class="index-head"><h3>' + esc(ix.name) + '</h3>' +
+        '<span class="status">' + mark('actual', ix.band) + esc(ix.band.label) + '</span></div>' +
+        '<div class="index-body">' + donut({ size: 104, stroke: 11, prog: ix.prog, state: 'actual', band: ix.band, label: ix.name, elapsed: elapsed, cap: '달성률' }) +
+        '<dl class="index-meta"><div><dt>지수</dt><dd><b>' + ix.cur.toFixed(1) + '</b> / ' + ix.tgt.toFixed(1) + '</dd></div>' +
+        '<div><dt>2025 달성률</dt><dd>' + pct(ix.y1 && ix.y1.rate) + '</dd></div></dl></div>' +
+        (flags.length ? '<p class="flag">' + esc(flags.join(', ')) + '</p>' : '') +
         '</article>';
     });
-    html += '</div></section>';
+    html += '</div>';
+
+    /* 범례 */
+    html += '<p class="legend" role="note">' +
+      '<span class="status"><span class="mark mark-deep"></span>우수 ' + th[2] + '% 이상</span>' +
+      '<span class="status"><span class="mark mark-green"></span>양호 ' + th[1] + '~' + th[2] + '%</span>' +
+      '<span class="status"><span class="mark mark-yellow"></span>주의 ' + th[0] + '~' + th[1] + '%</span>' +
+      '<span class="status"><span class="mark mark-red"></span>부진 ' + th[0] + '% 미만</span>' +
+      '<span class="status"><span class="mark mark-pending"></span>측정 전</span>' +
+      '<span class="status"><span class="mark mark-missing"></span>미입력</span>' +
+      '<span class="status"><span class="tick"></span>눈금은 ' + esc(asOf) + ' 기준 기간 경과율</span></p></section>';
 
     /* 부서별 실적 현황 (확인이 필요한 부서를 먼저) */
     html += '<section id="dept" class="pane" data-pane="dept"><div class="sec-head"><div><h2>부서별 실적 현황</h2>' +
@@ -138,7 +137,7 @@
     depts.forEach(function (g, gi) {
       html += '<article class="card dept-card dept-' + g.level + '" id="dept-' + gi + '">' +
         '<div class="dept-head"><h3>' + esc(g.dept) + '</h3><span class="status dept-status">' +
-        (g.level === 'good' ? '<span class="mark mark-green"></span>' : '<span class="mark mark-' + g.level + '"></span>') + esc(g.label) + '</span></div><ul>';
+        (g.label === '측정 전' ? '<span class="mark mark-pending"></span>' : g.level === 'good' ? '<span class="mark mark-green"></span>' : '<span class="mark mark-' + g.level + '"></span>') + esc(g.label) + '</span></div><ul>';
       g.items.slice().sort(function (a, b) {
         var pa = a.prog === null ? Infinity : a.prog, pb = b.prog === null ? Infinity : b.prog; return pa - pb;
       }).forEach(function (it) {

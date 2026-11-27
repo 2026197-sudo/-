@@ -497,3 +497,106 @@ body.locked #excelBtn, body.locked #reportBtn { display: none !important; }
 .gd .l3 { padding-left: 0; margin-top: 6px; }
 .gd .l4 { padding-left: 1.1em; text-indent: -1.1em; margin-top: 2px; }
 .gd .gd-table { width: 100%; margin-left: 0; }
+
+/* ===== 화면 다듬기 (색·형태 정리) =====
+   원칙: 대학 청색은 메뉴와 주요 버튼, 적색은 현재 위치·경고에만 씁니다.
+   카드·알약 모양을 줄이고, 숫자는 표처럼 왼쪽 정렬로 읽히게 합니다. */
+:root {
+  --bg: #F2F3F5; --surface: #FFFFFF; --surface-2: #F7F8FA;
+  --border: #DADDE3; --divider: #E6E8EC;
+  --ink: #1F2329; --heading: #1A1E24; --muted: #4A4F58; --subtle: #5F646D;
+  --chip-bg: #EAEFF8; --chip-ink: #0B3591; --track: #E3E6EB;
+  --note-ink: #8A4B12;
+  --st-red: #C8373D; --st-yellow: #C08A0A; --st-green: #3B8C5A; --st-deep: #1E6644; --none: #8B9099;
+  --radius: 8px;
+}
+:root[data-theme="dark"] {
+  --bg: #111317; --surface: #191C21; --surface-2: #1F2228; --border: #2F333A; --divider: #282C33;
+  --ink: #E4E6EA; --heading: #F2F3F5; --muted: #AAB0B9; --subtle: #959BA5;
+  --note-ink: #E9B27A;
+  --st-red: #EF7A7F; --st-yellow: #E8BD52; --st-green: #6CC28A; --st-deep: #A6E3BC; --none: #8B9099;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #111317; --surface: #191C21; --surface-2: #1F2228; --border: #2F333A; --divider: #282C33;
+    --ink: #E4E6EA; --heading: #F2F3F5; --muted: #AAB0B9; --subtle: #959BA5;
+    --note-ink: #E9B27A;
+    --st-red: #EF7A7F; --st-yellow: #E8BD52; --st-green: #6CC28A; --st-deep: #A6E3BC; --none: #8B9099;
+  }
+}
+
+/* 버튼: 알약 대신 각진 모서리 */
+.btn-theme, .btn { border-radius: var(--radius); }
+.btn-theme { width: 44px; justify-content: center; padding: 0; }
+.clock { background: none; padding: 10px 4px; color: #5F646D; }
+.card, .table-card { border-radius: var(--radius); }
+
+/* 머리 영역: 채운 청색 상자 대신 흰 바탕 위 글자 */
+.hero { background: none; color: var(--ink); border: none; border-bottom: 1px solid var(--border); border-radius: 0; padding: 4px 0 28px; gap: 28px 40px; align-items: flex-end; }
+.hero-main { gap: 10px; }
+.hero-kicker { margin: 0; font-size: 13px; font-weight: 600; color: var(--subtle); }
+.hero h1 { color: var(--heading); font-size: 32px; letter-spacing: -0.01em; }
+.hero p { color: var(--muted); }
+.hero-line { margin: 0; font-size: 14px; color: var(--muted); font-variant-numeric: tabular-nums; }
+.hero-alert { padding: 0; margin-top: 6px; background: none; border-radius: 0; color: var(--heading); font-weight: 600; text-decoration: underline; text-decoration-color: var(--border); text-underline-offset: 4px; }
+.hero-alert:hover { background: none; text-decoration-color: var(--st-red); }
+.hero-side { gap: 28px; align-items: center; }
+.hero .donut .val { color: var(--heading); }
+.hero .donut .cap { color: var(--subtle); font-size: 11px; }
+.hero-stats { margin: 0; display: grid; gap: 0; min-width: 240px; max-width: none; font-size: 14px; }
+.hero-stats > div { display: flex; justify-content: space-between; align-items: baseline; gap: 20px; padding: 7px 0; border-top: 1px solid var(--divider); }
+.hero-stats > div:first-child { border-top: none; }
+.hero-stats dt { color: var(--subtle); font-size: 13px; }
+.hero-stats dd { margin: 0; color: var(--ink); font-variant-numeric: tabular-nums; }
+.hero-stats b { font-size: 17px; color: var(--heading); }
+.hero-warn { margin: -12px 0 0; font-size: 12.5px; color: var(--subtle); }
+#summary.pane { gap: 24px; }
+
+/* 혁신지수: 한 판 4칸, 칸 사이는 세로선 */
+.index-row { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); }
+.index-row .index-card { padding: 18px 20px 16px; display: flex; flex-direction: column; align-items: stretch; gap: 12px; text-align: left; border-left: 1px solid var(--divider); }
+.index-row .index-card:first-child { border-left: none; }
+.index-head { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; }
+.index-head h3 { margin: 0; font-size: 15px; font-weight: 700; color: var(--heading); }
+.index-body { display: flex; align-items: center; gap: 16px; }
+.index-meta { margin: 0; display: flex; flex-direction: column; gap: 6px; font-size: 13px; color: var(--muted); }
+.index-meta > div { display: flex; flex-direction: column; }
+.index-meta dt { font-size: 12px; color: var(--subtle); }
+.index-meta dd { margin: 0; font-variant-numeric: tabular-nums; }
+.index-meta b { font-size: 16px; color: var(--heading); }
+.flag { margin: 0; padding: 0; background: none; border-radius: 0; font-size: 12px; color: var(--note-ink); }
+.flag::before { content: "잠정치 · "; font-weight: 600; }
+
+/* 범례: 상자 없이 한 줄 */
+.legend { margin: 0; padding: 0; background: none; border: none; border-radius: 0; gap: 6px 18px; font-size: 12.5px; color: var(--subtle); }
+
+/* 부서별: 색 띠 없이 상태 글자로 */
+.dept-summary { border: none; border-radius: 0; background: none; padding: 0; margin-bottom: 18px; }
+.dept-chip { border-radius: var(--radius); background: var(--surface); min-height: 34px; }
+.dept-card, .dept-card.dept-red, .dept-card.dept-yellow, .dept-card.dept-missing, .dept-card.dept-behind { border-top: 1px solid var(--border); }
+.dept-card.dept-red .dept-status, .dept-card.dept-yellow .dept-status, .dept-card.dept-behind .dept-status { color: var(--heading); }
+.dept-card { box-shadow: none; }
+
+/* 세부지표 소제목 행: 연한 청색 대신 회색 */
+.group-row td { background: var(--surface-2) !important; }
+.grp-name { color: var(--heading); }
+
+@media (max-width: 1080px) {
+  .index-row { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .index-row .index-card:nth-child(3) { border-left: none; }
+  .index-row .index-card:nth-child(n+3) { border-top: 1px solid var(--divider); }
+}
+@media (max-width: 560px) {
+  .index-row { grid-template-columns: 1fr; }
+  .index-row .index-card { border-left: none; border-top: 1px solid var(--divider); }
+  .index-row .index-card:first-child { border-top: none; }
+  .hero h1 { font-size: 24px; }
+  .hero-stats { min-width: 0; width: 100%; }
+}
+
+.dept-grid { align-items: start; }
+/* 포커스 표시: 적색은 오류처럼 보여 청색으로 */
+:root { --focus: #0B3591; }
+:root[data-theme="dark"] { --focus: #8FA9E6; }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) { --focus: #8FA9E6; } }
+#msg:empty { display: none; }
