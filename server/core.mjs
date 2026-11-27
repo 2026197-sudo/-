@@ -25,7 +25,7 @@
 // store 는 get(key, {type:"json"}) · set(key, text) · setJSON(key, value) · delete(key) 를 제공해야 합니다.
 import { createHmac, randomBytes, scryptSync, timingSafeEqual } from "node:crypto";
 import seed from "./seed.mjs";
-import { migrateSubs, applySubs, mergeEvidence, fixNames } from "./subs.mjs";
+import { migrateSubs, applySubs, mergeEvidence, fixNames, fixR2Dept } from "./subs.mjs";
 
 const KEY_CURRENT = "current";
 const KEY_INDEX = "history-index";
@@ -103,6 +103,7 @@ async function readCurrent(store) {
   migrateSubs(doc); // 세부운영지수 표가 없으면 한 번 채움 (다음 저장 때 함께 저장됨)
   mergeEvidence(doc); // 문서번호(증빙)는 비고 칸에 합쳐 씀
   fixNames(doc); // 담당자 이름 정정
+  fixR2Dept(doc); // 자원 공유·협력 관리부서에서 학사운영팀 제외
   return doc;
 }
 async function readIndex(store) {

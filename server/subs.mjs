@@ -42,7 +42,7 @@ export const TEMPLATE = {
   r1: { owner: "전효빈" },
   r2: { subs: [
     S("r2a", "공동교과목 개발 건수", 1, "기획팀", "전효빈", "", "생활속의 AI윤리이야기"),
-    S("r2b", "학점교류 건수", 2, "학사운영팀", "심원도, 박우진", "", "교비 2건(유한대, 한림성심대)"),
+    S("r2b", "학점교류 건수", 2, "기획팀", "심원도, 박우진", "", "교비 2건(유한대, 한림성심대)"),
     S("r2c", "인적자원 공유", null, "기획팀", "전효빈"),
     S("r2d", "교육공간 공유", 81, "교육환경지원팀", "정건식", "결의서관리-교비(비등록)-수입결의서(교육환경지원팀)-제정: 5322-01"),
   ] },
@@ -107,4 +107,17 @@ export function fixNames(doc) {
   const fix = (o) => { if (o && NAME_FIX[o.owner]) o.owner = NAME_FIX[o.owner]; };
   (doc.indices || []).forEach((ix) => (ix.items || []).forEach((it) => { fix(it); (it.subs || []).forEach(fix); }));
   doc.meta.nameFix = NAME_FIX_VER;
+}
+
+/* 인적·물적 자원 공유·협력: 관리부서에서 학사운영팀 제외 (지표·세부 모두, 한 번만 적용) */
+export function fixR2Dept(doc) {
+  if (!doc || !doc.meta || doc.meta.r2DeptFix) return;
+  const drop = (d) => String(d || "").split(/\s*[,·/]\s*/).map((x) => x.trim()).filter((x) => x && x !== "학사운영팀");
+  (doc.indices || []).forEach((ix) => (ix.items || []).forEach((it) => {
+    if (it.id !== "r2") return;
+    it.dept = drop(it.dept).join(", ") || "기획팀";
+    (it.subs || []).forEach((sb) => { const left = drop(sb.dept); sb.dept = left.length ? left.join(", ") : "기획팀"; });
+    if (it.inputs) delete it.inputs["학사운영팀"];
+  }));
+  doc.meta.r2DeptFix = 1;
 }
