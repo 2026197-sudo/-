@@ -762,3 +762,11 @@ table.sub-table { min-width: 760px; font-size: 13px; border: 1px solid var(--div
   .dash-two { grid-template-columns: 1fr; }
   .bar-row { grid-template-columns: 110px 1fr 56px; }
 }
+
+.invite-box { margin: 4px 0 18px; padding: 14px 16px; border: 1px solid var(--border); border-radius: var(--radius); background: var(--surface-2); }
+.invite-box h3 { margin: 0 0 4px; font-size: 15px; color: var(--heading); }
+.invite-box .desc { margin: 0 0 10px; font-size: 13px; color: var(--subtle); }
+.invite-form { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 10px; }
+.invite-form .field { min-width: 160px; }
+.invite-list { list-style: none; margin: 4px 0 0; padding: 0; }
+.invite-list li { display: flex; justify-content: space-between; align-items: center; gap: 10px; padding: 6px 0; border-top: 1px solid var(--divider); font-size: 13.5px; }
