@@ -172,9 +172,14 @@
       html += '</ul></div>';
     }
     html += '<div class="dept-grid">';
-    depts.forEach(function (g, gi) {
+    // 카드는 관리 지표가 많은 부서부터 (같으면 확인 필요 → 이름 순)
+    var LV = { red: 0, yellow: 1, behind: 2, missing: 3, good: 4 };
+    depts.slice().sort(function (a, b) {
+      return b.items.length - a.items.length || LV[a.level] - LV[b.level] || a.dept.localeCompare(b.dept, 'ko');
+    }).forEach(function (g) {
+      var gi = depts.indexOf(g);
       html += '<article class="card dept-card dept-' + g.level + '" id="dept-' + gi + '">' +
-        '<div class="dept-head"><h3>' + esc(g.dept) + '</h3><span class="status dept-status">' +
+        '<div class="dept-head"><h3>' + esc(g.dept) + ' <span class="dept-count">' + g.items.length + '개 지표</span></h3><span class="status dept-status">' +
         (g.label === '측정 전' ? '<span class="mark mark-pending"></span>' : g.level === 'good' ? '<span class="mark mark-green"></span>' : '<span class="mark mark-' + g.level + '"></span>') + esc(g.label) + '</span></div><ul>';
       g.items.slice().sort(function (a, b) {
         var pa = a.prog === null ? Infinity : a.prog, pb = b.prog === null ? Infinity : b.prog; return pa - pb;
