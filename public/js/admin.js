@@ -362,9 +362,11 @@
       if (!window.confirm('화면에서 고친 값이 있습니다. 고친 값은 저장하지 않고 "변경사항 없음"으로 기록할까요?\n고친 값을 반영하려면 [취소] 후 [저장하기]를 누르세요.')) return;
     }
     var btn = this; btn.disabled = true;
-    post('api/confirm', {}).then(function (res) {
+    var pickDept = me.admin ? document.getElementById('deptFilter').value : '';
+    if (me.admin && !pickDept && !me.dept) { btn.disabled = false; msg('관리부서 필터에서 확인할 부서를 먼저 골라 주세요.'); return; }
+    post('api/confirm', { dept: pickDept }).then(function (res) {
       if (!res.ok) { msg('기록하지 못했습니다: ' + (res.body.error || res.status)); return; }
-      msg('변경사항 없음으로 기록했습니다 (' + res.body.counted.length + '개 지표). 부서 입력 현황과 일정에 입력 완료로 표시됩니다.', true);
+      msg((res.body.depts ? res.body.depts.join(', ') + ' ' : '') + '변경사항 없음으로 기록했습니다 (' + res.body.counted.length + '개 지표). 부서 입력 현황과 일정에 입력 완료로 표시됩니다.', true);
       return load();
     }).catch(function () { msg('저장소에 연결할 수 없습니다.'); })
       .then(function () { btn.disabled = false; });
