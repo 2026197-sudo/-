@@ -160,13 +160,13 @@
     if (ist) {
       var doneN = ist.list.filter(function (g) { return g.level === 'done'; }).length;
       html += '<div class="input-status"><div class="input-head"><h3>' + ist.q + '분기(' + ist.m1 + '~' + ist.m3 + '월) 실적 입력 현황</h3>' +
-        '<span class="desc">' + esc(K.dotDate(ist.since)) + ' 이후 저장 기준 · ' + ist.list.length + '개 부서 중 ' + doneN + '개 입력 완료</span></div><ul>';
+        '<span class="desc">' + esc(K.dotDate(ist.since)) + ' 이후 각 부서 담당자가 직접 저장한 기준(관리자 수정 제외) · ' + ist.list.length + '개 부서 중 ' + doneN + '개 입력 완료</span></div><ul>';
       ist.list.forEach(function (g) {
         var lab = g.level === 'done' ? '입력 완료' : g.level === 'part' ? '일부 입력' : '미입력';
         var missing = g.items.filter(function (x) { return !x.ok; }).map(function (x) { return x.name; });
         html += '<li class="in-' + g.level + '"><span class="in-dot" aria-hidden="true"></span><span class="in-dept">' + esc(g.dept) + '</span>' +
           '<span class="in-state">' + lab + ' <span class="dim">' + g.done + '/' + g.items.length + '</span></span>' +
-          '<span class="in-last dim">' + (g.last ? '최근 ' + esc(K.clockText(new Date(g.last)).slice(0, 10)) + (g.by ? ' · ' + esc(g.by) : '') : '입력 기록 없음') +
+          '<span class="in-last dim">' + (g.last ? '최근 ' + esc(K.clockText(new Date(g.last)).slice(0, 10)) + (g.by ? ' · ' + esc(g.by) : '') : '담당자 입력 기록 없음') +
           (missing.length && g.level === 'part' ? ' · 남은 지표: ' + esc(missing.join(', ')) : '') + '</span></li>';
       });
       html += '</ul></div>';

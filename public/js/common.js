@@ -479,7 +479,7 @@
   }
 
   /* 부서별 실적 입력 현황: 대상 분기(알림 중인 분기, 없으면 실적 기준일의 분기) 마지막 달 1일 이후에
-     저장된 지표를 '입력'으로 봅니다. 저장할 때 서버가 지표마다 inputAt(시각)·inputBy(입력자)를 남깁니다. */
+     그 부서 담당자가 직접 저장한 지표를 '입력'으로 봅니다(서버가 inputs[부서]에 시각·입력자를 남김). */
   function inputStatus(d, r, now) {
     var m = d.meta || {}, al = inputAlarm(d, now);
     var q = al || quarterOf(m, m.asOfDate);
@@ -490,11 +490,9 @@
     r.indices.forEach(function (ix) { ix.items.forEach(function (it) {
       String(it.dept || '').split(/\s*[,·\/]\s*/).map(function (x) { return x.trim(); }).filter(Boolean).forEach(function (dept) {
         var g = map[dept] = map[dept] || { dept: dept, items: [], done: 0, last: null, by: '' };
-        // 부서별 기록(inputs[부서])을 쓰고, 관리자가 대신 입력한 경우(inputBy에 '관리자')도 입력으로 봄
+        // 담당자가 직접 저장한 기록(inputs[부서])만 봅니다. 관리자가 대신 고친 것은 입력으로 세지 않습니다.
         var rec = (it.inputs && it.inputs[dept]) || null;
-        var adminAt = /관리자/.test(String(it.inputBy || '')) ? String(it.inputAt || '') : '';
-        var at = rec && String(rec.at) > adminAt ? String(rec.at) : adminAt;
-        var by = rec && String(rec.at) >= adminAt ? rec.by : (adminAt ? it.inputBy : '');
+        var at = rec ? String(rec.at || '') : '', by = rec ? rec.by : '';
         var ok = at && at.slice(0, 10) >= since;
         g.items.push({ name: it.short || it.name, ok: !!ok, at: at, by: by || '' });
         if (ok) g.done++;
