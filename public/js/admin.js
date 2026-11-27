@@ -50,13 +50,13 @@
 
   /* 대시보드 문구 목록 편집기 설정 */
   var LISTS = [
-    { key: 'notes', title: '해석 시 유의사항 (직접 입력)', hint: '자동 항목 외에 꼭 알려야 할 해석상 주의점을 적습니다. 필요 없어지면 삭제하세요.',
+    { key: 'notes', title: '해석 참고 (직접 입력)', hint: '자동으로 만드는 지표별 확인사항 외에 꼭 알려야 할 해석상 주의점을 적습니다. 필요 없어지면 삭제하세요.',
       get: function (d) { return d.notes; }, set: function (d, v) { d.notes = v; }, done: false,
       fields: [{ k: 'title', label: '제목' }, { k: 'body', label: '내용', area: true }] },
     { key: 'events', title: '측정 기준일과 남은 일정 (직접 입력)', hint: '분기 기준일·측정기간 종료·측정 전 지표 일정은 자동으로 표시됩니다. 날짜가 지나면 끝난 일정으로 자동 이동하고, 연결 지표를 고르면 그 지표가 실적으로 입력될 때 자동 완료됩니다.',
       get: function (d) { return d.events; }, set: function (d, v) { d.events = v; }, done: true, link: true,
       fields: [{ k: 'date', label: '날짜', type: 'date' }, { k: 'name', label: '일정' }, { k: 'desc', label: '설명 · 담당' }] },
-    { key: 'fixdata', title: '실적 파일 필수확인사항', hint: '엑셀 등 실적 자료에서 고쳐야 할 점입니다. 연결 지표를 고르면 그 지표가 실적으로 입력될 때 자동 완료됩니다.',
+    { key: 'fixdata', title: '실적 파일 확인사항', hint: '엑셀 등 실적 자료에서 고쳐야 할 점입니다. 연결 지표를 고르면 대시보드에서 그 지표의 확인사항 줄에 함께 표시되고, 실적으로 입력되면 자동 완료됩니다.',
       get: function (d) { return d.fixes.data; }, set: function (d, v) { d.fixes.data = v; }, done: true, link: true,
       fields: [{ k: 'item', label: '확인사항' }, { k: 'owner', label: '담당 부서', narrow: true }] },
     { key: 'fixdoc', title: '정의서 정정 필요 사항', hint: '성과지표 정의서에서 정정할 내용입니다.',
@@ -147,12 +147,9 @@
     if (!box) return;
     var r = K.compute(d), auto = K.insights(r, K.elapsedRatio(d.meta), d.meta);
     var html = '';
-    if (auto.notes.length) {
-      html += '<p class="small"><b>유의사항</b></p><ul>' + auto.notes.map(function (n) { return '<li>' + esc(n.title) + '</li>'; }).join('') + '</ul>';
-    }
-    if (auto.checks.length) {
-      html += '<p class="small"><b>지표 자동 점검</b></p><ul>' + auto.checks.map(function (c) {
-        return '<li><span class="status"><span class="mark mark-' + c.tag + '"></span>' + esc(c.label) + '</span> ' + esc(c.what) + ' <span class="dim">(' + esc(c.who) + ')</span></li>';
+    if (auto.items.length) {
+      html += '<p class="small"><b>지표별 확인사항 (자동)</b></p><ul>' + auto.items.map(function (e) {
+        return '<li><span class="status"><span class="mark mark-' + e.tag + '"></span>' + esc(e.label) + '</span> ' + esc(e.title) + ' <span class="dim">(' + esc(e.who) + ')</span></li>';
       }).join('') + '</ul>';
     }
     box.innerHTML = html || '<p class="dim small">현재 자동으로 표시할 항목이 없습니다.</p>';
@@ -315,7 +312,7 @@
       post('api/data', c.next).then(function (res) {
         if (!res.ok) { msg('저장하지 못했습니다: ' + (res.body.error || res.status)); return; }
         var ch = res.body.changed || [];
-        msg(ch.length ? '저장했습니다 (' + ch.length + '개 지표: ' + ch.join(', ') + ').' : '바뀐 값이 없어 저장하지 않았습니다.', true);
+        msg(ch.length ? '저장했습니다 (' + ch.length + '개 지표: ' + ch.join(', ') + '). 부서 입력 현황에 입력 완료로 표시됩니다.' : '바뀐 값은 없고, 현재 값으로 입력 확인을 기록했습니다. 부서 입력 현황에 입력 완료로 표시됩니다.', true);
         return load();
       }).catch(function () { msg('저장소에 연결할 수 없습니다. 잠시 후 다시 시도해 주세요.'); })
         .then(function () { btn.disabled = false; });

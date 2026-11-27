@@ -296,16 +296,7 @@
     if (m.periodEnd) list.push({ date: m.periodEnd, auto: true, owner: '기획팀', name: '측정기간 종료', desc: '연차 실적 집계 마감' });
     return addPending(list);
 
-    function addPending(arr) {
-      var byDept = {};
-      r.indices.forEach(function (ix) { ix.items.forEach(function (it) {
-        if (it.state === 'pending') (byDept[it.dept] = byDept[it.dept] || []).push(it.short || it.name);
-      }); });
-      Object.keys(byDept).forEach(function (dept) {
-        arr.push({ date: '', auto: true, owner: dept, name: byDept[dept].join(', ') + ' 측정', desc: '측정 결과 입력 대기' });
-      });
-      return arr;
-    }
+    function addPending(arr) { return arr; } // 측정 전 지표는 '지표별 확인사항'에 한 번만 표시 (일정과 중복 제거)
   }
 
   /* 분기 실적 입력 알림: 분기 마지막 날 3일 전부터 종료 후 14일까지,
@@ -440,72 +431,84 @@
       r.indices.map(function (ix) { return ix.name + ' ' + (ix.prog === null ? '-' : ix.prog.toFixed(1)); }).join(', ') + '로 나타남';
   }
 
-  /* 지표 상태로 자동 유의사항과 자동 점검 목록을 만듭니다.
-     값을 입력하거나 상태를 바꾸면 다음 화면부터 바로 바뀝니다.
-     문구는 IR센터 분기 결과보고의 표현을 따릅니다. */
+  /* 지표별 확인사항: 지표 하나에 한 줄로, 왜 확인해야 하는지(설명)와 할 일·담당을 함께 만듭니다.
+     값을 입력하거나 상태를 바꾸면 다음 화면부터 바로 바뀝니다. 문구는 IR센터 분기 결과보고의 표현을 따릅니다. */
   function insights(r, elapsedRatioValue, meta) {
     var el = elapsedRatioValue === null || elapsedRatioValue === undefined ? null : elapsedRatioValue * 100;
-    var notes = [], checks = [];
-    var an = reportAnalysis(r, meta || {}, elapsedRatioValue);
-    var pending = [], missing = [], red = [], lagging = [], finals = [];
+    var items = [];
+    var ORDER = { missing: 0, red: 1, pending: 2, yellow: 3 };
     r.indices.forEach(function (ix) {
       ix.items.forEach(function (it) {
-        var x = { it: it, ix: ix };
-        if (it.state === 'pending') pending.push(x);
-        else if (it.state === 'missing') missing.push(x);
-        else {
-          var b = basisOf(it, meta);
-          if (b && b.final && it.prog !== null && it.prog < 100) finals.push(x);
-          if (it.band && it.band.key === 'red') red.push(x);
-          else if (it.band && it.band.key === 'yellow' && el !== null && it.prog < el) lagging.push(x);
+        var b = basisOf(it, meta), nm = itemName(it), e = null;
+        var ext = EXTERNAL.indexOf(it.id) >= 0;
+        if (it.state === 'missing' || it.state === 'pending') {
+          var miss = it.state === 'missing';
+          e = { tag: it.state, label: miss ? '미입력' : '측정 전',
+            title: nm + (b ? ' · ' + b.short : (miss ? ' · 실적 미입력' : ' · 측정 전')),
+            body: (b && !b.final ? quote(it) + ' ' + b.when + (/지표로$/.test(b.when) ? ', ' : ' ') + inputPhrase(it) + '. ' : '') +
+              (miss ? '미입력 값은 0으로 계산되어 ' + ix.name + josa(ix.name, '이', '가') + ' 실제보다 낮게 나타남(반영비중 ' + it.weight + '%).'
+                : '입력값은 확정 전 값으로 혁신지수 계산에만 포함되며 달성률은 계산하지 않음.'),
+            todo: b ? b.todo.replace(/ 실적 입력$/, '') + ' 실적 입력' : (miss ? '자료 입력' : '측정 일정 확정 및 입력값 근거 확인') };
+        } else if (it.prog !== null) {
+          var low = it.prog < LOW, lag = el !== null && it.prog < el && it.prog < 60;
+          var extWeak = ext && (it.prog < 60 || (el !== null && it.prog < el));
+          if (b && b.final && it.prog < 100) {
+            e = { tag: low ? 'red' : 'pending', label: '최종 반영', title: nm + ' ' + it.prog.toFixed(1) + '% · ' + b.short,
+              body: quote(it) + ' ' + b.when + '.', todo: b.todo };
+          } else if (low || lag || extWeak) {
+            var body = low ? LOW + '% 미만의 낮은 달성률을 보여 지속적인 관리가 필요함.' :
+              (el !== null && it.prog < el ? '기간 경과율(' + el.toFixed(1) + '%)보다 ' + (el - it.prog).toFixed(1) + '%p 낮음.' : '달성률 60% 미만으로 관리가 필요함.');
+            if (extWeak) body += ' 외부 연계 기반 지표로, 관련 프로그램의 참여 확대와 운영 전략 보완이 필요할 것으로 판단됨.';
+            e = { tag: it.band && it.band.key === 'red' ? 'red' : 'yellow', label: low ? LOW + '% 미만' : extWeak ? '외부 연계' : '경과율 미달',
+              title: nm + ' ' + it.prog.toFixed(1) + '%', body: body,
+              todo: extWeak ? '관련 프로그램 참여 확대 및 운영 전략 보완' : '미추진·추진 중인 사업의 이행상황 점검 및 참여 독려' };
+          }
+        }
+        if (e) {
+          e.who = it.dept; e.id = it.id; e.note = it.note || '';
+          items.push(e);
         }
       });
     });
+    items.sort(function (a, b) { return (ORDER[a.tag] === undefined ? 9 : ORDER[a.tag]) - (ORDER[b.tag] === undefined ? 9 : ORDER[b.tag]); });
+    return {
+      items: items,
+      notes: items.map(function (e) { return { title: e.title, body: e.body }; }),
+      checks: items.map(function (e) { return { tag: e.tag, label: e.label, who: e.who, what: e.todo + ' (' + e.title + ')' }; })
+    };
+  }
 
-    if (an.low.length) {
-      notes.push({
-        title: LOW + '% 미만 지표 ' + an.low.length + '개는 지속적인 관리가 필요합니다',
-        body: an.low.map(function (it) { return itemName(it) + '(' + it.prog.toFixed(1) + '%)'; }).join(', ') +
-          ' 지표는 ' + LOW + '% 미만의 낮은 달성률을 보여 지속적인 관리가 필요함.'
+  /* 부서별 실적 입력 현황: 대상 분기(알림 중인 분기, 없으면 실적 기준일의 분기) 마지막 달 1일 이후에
+     저장된 지표를 '입력'으로 봅니다. 저장할 때 서버가 지표마다 inputAt(시각)·inputBy(입력자)를 남깁니다. */
+  function inputStatus(d, r, now) {
+    var m = d.meta || {}, al = inputAlarm(d, now);
+    var q = al || quarterOf(m, m.asOfDate);
+    if (!q) return null;
+    var endParts = String(q.end).split('-').map(Number);
+    var since = ymd(endParts[0], endParts[1], 1); // 분기 마지막 달 1일
+    var map = {};
+    r.indices.forEach(function (ix) { ix.items.forEach(function (it) {
+      String(it.dept || '').split(/\s*[,·\/]\s*/).map(function (x) { return x.trim(); }).filter(Boolean).forEach(function (dept) {
+        var g = map[dept] = map[dept] || { dept: dept, items: [], done: 0, last: null, by: '' };
+        // 부서별 기록(inputs[부서])을 쓰고, 관리자가 대신 입력한 경우(inputBy에 '관리자')도 입력으로 봄
+        var rec = (it.inputs && it.inputs[dept]) || null;
+        var adminAt = /관리자/.test(String(it.inputBy || '')) ? String(it.inputAt || '') : '';
+        var at = rec && String(rec.at) > adminAt ? String(rec.at) : adminAt;
+        var by = rec && String(rec.at) >= adminAt ? rec.by : (adminAt ? it.inputBy : '');
+        var ok = at && at.slice(0, 10) >= since;
+        g.items.push({ name: it.short || it.name, ok: !!ok, at: at, by: by || '' });
+        if (ok) g.done++;
+        if (at && (!g.last || at > g.last)) { g.last = at; g.by = by || ''; }
       });
-    }
-    missing.concat(pending).forEach(function (x) {
-      var it = x.it, b = basisOf(it, meta);
-      notes.push({
-        title: (function (n) { return n + (b ? josa(n, '은', '는') + ' ' + b.short : (it.state === 'missing' ? ' 미입력은 0으로 계산됩니다' : josa(n, '은', '는') + ' 측정 전 지표입니다')); })(it.short || itemName(it)),
-        body: (b && !b.final ? quote(it) + ' ' + b.when + (/지표로$/.test(b.when) ? ', ' : ' ') + inputPhrase(it) + '. ' : '') +
-          (it.state === 'missing' ? '미입력 값은 0으로 계산되어 ' + x.ix.name + josa(x.ix.name, '이', '가') + ' 실제보다 낮게 나타남(반영비중 ' + it.weight + '%).' :
-            '입력값은 확정 전 값으로 혁신지수 계산에만 포함되며 달성률은 계산하지 않음.')
-      });
-      checks.push({ tag: it.state, label: it.state === 'missing' ? '미입력' : '측정 전', who: it.dept,
-        what: (b ? b.todo.replace(/ 실적 입력$/, '') + ' ' + itemName(it) + ' 실적 입력' : itemName(it) + (it.state === 'missing' ? ' 자료 입력' : ' 측정 일정 확정 및 입력값 근거 확인')) + (it.note ? ' (' + it.note + ')' : '') });
+    }); });
+    var list = Object.keys(map).map(function (k) {
+      var g = map[k];
+      g.level = g.done === g.items.length ? 'done' : g.done ? 'part' : 'none';
+      return g;
     });
-    finals.forEach(function (x) {
-      var it = x.it, b = basisOf(it, meta);
-      var nm = it.short || itemName(it);
-      notes.push({ title: nm + josa(nm, '은', '는') + ' ' + b.short, body: quote(it) + ' ' + b.when + '.' });
-      checks.push({ tag: 'pending', label: '최종 반영', who: it.dept, what: b.todo + ' (' + itemName(it) + ', 현재 ' + it.prog.toFixed(1) + '%)' });
-    });
-    if (an.ext.length) {
-      notes.push({ title: '외부 연계 기반 지표의 개선이 필요합니다',
-        body: an.ext.map(function (it) { return itemName(it) + '(' + it.prog.toFixed(1) + '%)'; }).join(', ') +
-          ' 등 외부 연계 기반 지표에서 개선 필요성이 확인됨에 따라, 향후 관련 프로그램의 참여 확대와 운영 전략 보완이 필요할 것으로 판단됨.' });
-    }
-    red.forEach(function (x) {
-      var it = x.it;
-      if (finals.some(function (f) { return f.it === it; })) return;
-      checks.push({ tag: 'red', label: '부진', who: it.dept, what: itemName(it) + ' 미추진·추진 중인 사업의 이행상황 점검 및 참여 독려 강화 (현재 ' + it.prog.toFixed(1) + '%)' });
-    });
-    lagging.forEach(function (x) {
-      var it = x.it;
-      checks.push({ tag: 'yellow', label: '주의', who: it.dept, what: itemName(it) + ' 기간 경과율 대비 부족분 점검 (현재 ' + it.prog.toFixed(1) + '%, 경과율 ' + el.toFixed(1) + '%)' });
-    });
-    an.ext.forEach(function (it) {
-      if (it.band && (it.band.key === 'red' || (it.band.key === 'yellow' && el !== null && it.prog < el))) return;
-      checks.push({ tag: 'yellow', label: '외부 연계', who: it.dept, what: itemName(it) + ' 관련 프로그램 참여 확대 및 운영 전략 보완 (현재 ' + it.prog.toFixed(1) + '%)' });
-    });
-
-    return { notes: notes, checks: checks };
+    var order = { none: 0, part: 1, done: 2 };
+    list.sort(function (a, b) { return order[a.level] - order[b.level] || a.dept.localeCompare(b.dept, 'ko'); });
+    return { q: q.q, m1: q.m1, m3: q.m3, end: q.end, since: since, active: !!al, list: list };
   }
 
   /* 관리부서별 실적: 부진(30% 미만) → 주의(30~60%) → 경과율 미달(기간 경과율보다 낮음) → 입력 필요 → 양호 순 */
@@ -545,6 +548,6 @@
     clockText: clockText, dotDate: dotDate, elapsedRatio: elapsedRatio, daysUntil: daysUntil,
     initTheme: initTheme, toggleTheme: toggleTheme, startClock: startClock,
     normalize: normalize, insights: insights, josa: josa, reportAnalysis: reportAnalysis, reportSummary: reportSummary,
-    linkDone: linkDone, findItem: findItem, scheduleOf: scheduleOf, inputAlarm: inputAlarm, quarterOf: quarterOf, SCHEMA: SCHEMA, deptSummary: deptSummary
+    linkDone: linkDone, findItem: findItem, scheduleOf: scheduleOf, inputAlarm: inputAlarm, inputStatus: inputStatus, quarterOf: quarterOf, SCHEMA: SCHEMA, deptSummary: deptSummary
   };
 })(typeof window !== 'undefined' ? window : globalThis);

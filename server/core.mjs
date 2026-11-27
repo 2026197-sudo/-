@@ -215,7 +215,8 @@ async function issue(store, user, remember) {
 }
 
 /* ---------- 담당자 저장: 본인 부서 지표만 반영 ---------- */
-function mergeForDept(current, submitted, dept) {
+function mergeForDept(current, submitted, dept, who) {
+  const stamp = kstIso();
   const next = JSON.parse(JSON.stringify(current));
   const sub = {};
   (submitted.indices || []).forEach((ix) => (ix.items || []).forEach((it) => { sub[it.id] = it; }));
@@ -229,6 +230,10 @@ function mergeForDept(current, submitted, dept) {
     if (["actual", "pending", "missing"].includes(s.status)) it.status = s.status;
     if (typeof s.note === "string") it.note = s.note.slice(0, 500);
     if (JSON.stringify([it.current, it.status, it.note]) !== before) changed.push(it.short || it.name);
+    // 값이 그대로여도 저장하면 '이번에 확인·입력함'으로 기록 (부서별 입력 현황용)
+    it.inputAt = stamp;
+    it.inputBy = who;
+    it.inputs = Object.assign({}, it.inputs || {}, { [dept]: { at: stamp, by: who } }); // 여러 부서가 함께 맡는 지표는 부서별로 기록
   }));
   return { next, changed };
 }
@@ -345,9 +350,8 @@ export async function handle(req, { store, ip, path: forcedPath, platform }) {
 
       if (!me.admin) {
         // 담당자: 본인 부서 지표의 현재값·상태·비고만 최신 자료에 반영 (다른 부서·기본 정보·문구는 무시)
-        const { next, changed } = mergeForDept(current, doc, me.dept);
-        if (!changed.length) return json(200, { ok: true, changed: [], updatedAt: (current.meta && current.meta.updatedAt) || null });
-        const backupId = await archive(store, current, "저장 전 자료");
+        const { next, changed } = mergeForDept(current, doc, me.dept, `${me.name} (${me.dept})`);
+        const backupId = changed.length ? await archive(store, current, "저장 전 자료") : null;
         next.meta.updatedAt = kstIso();
         next.meta.updatedBy = `${me.name} (${me.dept})`;
         await store.setJSON(KEY_CURRENT, next);
@@ -360,8 +364,19 @@ export async function handle(req, { store, ip, path: forcedPath, platform }) {
         return json(409, { error: "다른 담당자가 먼저 저장했습니다.", updatedAt: curStamp });
       }
       const backupId = await archive(store, current, "저장 전 자료");
+      // 지표별 입력 기록: 값·상태·비고가 바뀐 지표만 이번 입력으로 남기고, 나머지는 기존 기록 유지
+      const prev = {};
+      (current.indices || []).forEach((ix) => (ix.items || []).forEach((it) => { prev[it.id] = it; }));
+      const stamp = kstIso(), adminName = me.name === "관리자" ? "관리자" : `${me.name} (관리자)`;
+      doc.indices.forEach((ix) => ix.items.forEach((it) => {
+        const p = prev[it.id];
+        const same = p && JSON.stringify([p.current, p.status, p.note]) === JSON.stringify([it.current, it.status, it.note]);
+        if (p && p.inputs) it.inputs = p.inputs; else delete it.inputs;
+        if (same) { if (p.inputAt) { it.inputAt = p.inputAt; it.inputBy = p.inputBy; } else { delete it.inputAt; delete it.inputBy; } }
+        else { it.inputAt = stamp; it.inputBy = adminName; }
+      }));
       doc.meta.updatedAt = kstIso();
-      doc.meta.updatedBy = me.name === "관리자" ? "관리자" : `${me.name} (관리자)`;
+      doc.meta.updatedBy = adminName;
       await store.setJSON(KEY_CURRENT, doc);
       return json(200, { ok: true, backup: backupId, updatedAt: doc.meta.updatedAt });
     }
