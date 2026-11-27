@@ -243,7 +243,7 @@
     });
 
     html += '<section id="notes" class="pane" data-pane="notes"><div class="two-col">';
-    html += '<div class="panel flat"><h2>지표별 확인사항</h2><div class="desc">입력된 수치로 자동 작성합니다. 지표 하나에 한 줄씩, 확인할 내용과 할 일을 함께 적었습니다.</div><div>';
+    html += '<div class="panel flat"><h2>지표별 확인사항</h2><div class="desc">입력된 수치로 자동 작성합니다. 지표 하나에 한 줄씩 확인할 내용과 할 일을 적고, 실적 파일 확인사항도 함께 모았습니다.</div><div>';
     auto.items.forEach(function (e) {
       var extra = (fdByItem[e.id] || []).map(function (f) { return '<span class="sub todo">실적 파일: ' + esc(f.item) + '</span>'; }).join('');
       html += '<div class="list-row check-row"><span class="body">' +
@@ -252,7 +252,13 @@
         '<span class="sub todo">할 일: ' + esc(e.todo) + (e.note ? ' · ' + esc(e.note) : '') + '</span>' + extra +
         '</span><span class="owner">' + esc(e.who) + '</span></div>';
     });
-    if (!auto.items.length) html += '<p class="dim">확인이 필요한 지표가 없습니다.</p>';
+    // 지표와 연결되지 않은 실적 파일 확인사항도 같은 목록에 한 줄씩
+    fdOpen.forEach(function (f) {
+      html += '<div class="list-row check-row"><span class="body"><span><span class="status check-label"><span class="mark mark-missing"></span>실적 파일</span> <b>' + esc(f.item) + '</b></span></span>' +
+        '<span class="owner">' + esc(f.owner) + '</span></div>';
+    });
+    if (!auto.items.length && !fdOpen.length) html += '<p class="dim">확인이 필요한 지표가 없습니다.</p>';
+    html += doneList(fdDone, function (f) { return '<span class="body"><span>' + esc(f.item) + '</span></span><span class="owner">' + esc(f.owner) + '</span>'; }, '처리한 실적 파일 확인사항');
     var manual = data.notes.filter(function (n) { return n && (n.title || n.body); });
     if (manual.length) {
       html += '<h3 class="sub-head">해석 참고</h3>';
@@ -276,19 +282,13 @@
     }, '끝난 일정');
     html += '</div></div></div>';
 
-    html += '<div class="two-col fix-wrap">';
-    html += '<div class="panel flat"><h2>실적 파일 확인사항</h2><div class="desc">분기 실적 엑셀 정리 (지표와 연결된 항목은 위 지표별 확인사항에 함께 표시)</div><div>';
-    fdOpen.forEach(function (f) { html += '<div class="list-row"><span>' + esc(f.item) + '</span><span class="owner">' + esc(f.owner) + '</span></div>'; });
-    if (!fdOpen.length) html += '<p class="dim">남은 확인사항이 없습니다.</p>';
-    html += doneList(fdDone, function (f) { return '<span class="body"><span>' + esc(f.item) + '</span></span><span class="owner">' + esc(f.owner) + '</span>'; });
-
     var docOpen = data.fixes.doc.filter(function (f) { return f && !f.done; });
     var docDone = data.fixes.doc.filter(function (f) { return f && f.done; }).map(function (f) { return Object.assign({ why: '완료' }, f); });
-    html += '</div></div><div class="panel flat"><h2>정의서 정정 필요 사항</h2><div class="desc">정의서 산출식 재계산 결과</div><div>';
+    html += '<div class="panel flat fix-wrap"><h2>정의서 정정 필요 사항</h2><div class="desc">정의서 산출식 재계산 결과</div><div>';
     docOpen.forEach(function (f) { html += '<div class="list-row"><span class="body"><span style="font-weight:500">' + esc(f.item) + '</span><span class="sub">' + esc(f.detail) + '</span></span></div>'; });
     if (!docOpen.length) html += '<p class="dim">남은 정정 사항이 없습니다.</p>';
     html += doneList(docDone, function (f) { return '<span class="body"><span>' + esc(f.item) + '</span><span class="sub">' + esc(f.detail) + '</span></span>'; });
-    html += '</div></div></div></section>';
+    html += '</div></div></section>';
 
     document.getElementById('app').innerHTML = html;
     var navNotes = document.querySelector('.nav a[href="#notes"]');
