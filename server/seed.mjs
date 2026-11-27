@@ -247,7 +247,7 @@ export default {
           "current": 71,
           "status": "actual",
           "note": "인적자원 공유 미입력 · 학점교류 2학기 확인",
-          "dept": "기획팀, 교육환경지원팀"
+          "dept": "기획팀, 학사운영팀, 교육환경지원팀"
         },
         {
           "id": "r3",

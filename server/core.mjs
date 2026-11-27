@@ -103,7 +103,7 @@ async function readCurrent(store) {
   migrateSubs(doc); // 세부운영지수 표가 없으면 한 번 채움 (다음 저장 때 함께 저장됨)
   mergeEvidence(doc); // 문서번호(증빙)는 비고 칸에 합쳐 씀
   fixNames(doc); // 담당자 이름 정정
-  fixR2Dept(doc); // 자원 공유·협력 관리부서에서 학사운영팀 제외
+  fixR2Dept(doc); // 자원 공유·협력 관리부서 원래대로 (학사운영팀 포함)
   return doc;
 }
 async function readIndex(store) {
