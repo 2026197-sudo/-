@@ -690,3 +690,8 @@ table.sub-table { min-width: 760px; font-size: 13px; border: 1px solid var(--div
 }
 
 .tools .theme-label { display: none; }
+
+/* 부서 카드: 지표 많은 순, 세로로 빈틈 없이 */
+.dept-grid { display: block; columns: 4 260px; column-gap: 14px; }
+.dept-grid .dept-card { break-inside: avoid; margin-bottom: 14px; display: block; }
+.dept-count { margin-left: 6px; font-size: 12px; font-weight: 500; color: var(--subtle); }
