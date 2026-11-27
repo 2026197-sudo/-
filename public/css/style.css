@@ -695,3 +695,15 @@ table.sub-table { min-width: 760px; font-size: 13px; border: 1px solid var(--div
 .dept-grid { display: block; columns: 4 260px; column-gap: 14px; }
 .dept-grid .dept-card { break-inside: avoid; margin-bottom: 14px; display: block; }
 .dept-count { margin-left: 6px; font-size: 12px; font-weight: 500; color: var(--subtle); }
+
+/* 세부지표: 수치를 더 잘 보이게, 부서·담당은 한 줄로 */
+.kpi-nums { grid-template-columns: repeat(4, minmax(100px, 150px)) 1fr; align-items: end; }
+.kpi-nums dd { font-size: 17px; font-weight: 600; }
+.kpi-nums dd.strong { font-size: 24px; font-weight: 800; line-height: 1.15; }
+.kpi-nums dd.strong small { color: inherit; opacity: .8; font-size: 13px; }
+.kpi-nums dd.txt { font-size: 14px; font-weight: 600; white-space: nowrap; }
+.kpi-cur { padding-left: 10px; border-left: 3px solid currentColor; }
+.kpi-cur dt { color: var(--subtle); }
+.sub-table td:nth-child(3), .sub-table td:nth-child(4) { white-space: nowrap; }
+.sub-table td.r.strong { font-size: 14px; }
+.sub-table tbody th[scope="row"] { min-width: 210px; }
