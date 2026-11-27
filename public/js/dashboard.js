@@ -211,7 +211,7 @@
           '<div class="kpi-bar-wrap"><div class="kpi-bar" role="img" aria-label="' + esc(it.name) + ' 달성률 ' + (it.prog === null ? statusLabel(it.state) : pct(it.prog)) + '">' +
           '<i style="width:' + w.toFixed(1) + '%;background:' + color + '"></i>' + (elPct !== null ? '<em style="left:' + Math.min(elPct, 100).toFixed(1) + '%"></em>' : '') + '</div>' +
           '<span class="kpi-rate">' + (it.prog === null ? esc(statusLabel(it.state)) : pct(it.prog)) + '</span></div>' +
-          '<dl class="kpi-nums"><div><dt>현재값</dt><dd class="strong">' + cell(curTxt, it.unit) + (it.state === 'pending' && K.num(it.current) !== null ? '<small> (잠정)</small>' : '') + '</dd></div>' +
+          '<dl class="kpi-nums"><div class="kpi-cur"><dt>현재값</dt><dd class="strong" style="color:' + (it.state === 'actual' && it.band ? 'var(--st-' + it.band.key + ')' : 'var(--subtle)') + '">' + cell(curTxt, it.unit) + (it.state === 'pending' && K.num(it.current) !== null ? '<small> (잠정)</small>' : '') + '</dd></div>' +
           '<div><dt>2026 목표</dt><dd>' + cell(it.targets.y2, it.unit) + '</dd></div>' +
           '<div><dt>2025 실적</dt><dd>' + cell(it.y1Actual, it.unit) + '</dd></div>' +
           '<div><dt>2027 목표</dt><dd>' + cell(it.targets.y3, it.unit) + '</dd></div>' +
