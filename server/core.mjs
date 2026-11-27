@@ -235,7 +235,9 @@ async function issue(store, user, remember) {
 }
 
 /* ---------- 담당자 저장: 본인 부서 지표만 반영 ---------- */
-function mergeForDept(current, submitted, dept, who) {
+function mergeForDept(current, submitted, deptStr, who) {
+  const myDepts = splitDepts(deptStr);
+  const hit = (d) => splitDepts(d).some((x) => myDepts.includes(x));
   const stamp = kstIso();
   const next = JSON.parse(JSON.stringify(current));
   const sub = {};
@@ -245,8 +247,8 @@ function mergeForDept(current, submitted, dept, who) {
   next.indices.forEach((ix) => ix.items.forEach((it) => {
     const s = sub[it.id];
     if (!s) return;
-    const ownItem = splitDepts(it.dept).includes(dept);
-    const mySubs = (it.subs || []).filter((sb) => splitDepts(sb.dept).includes(dept));
+    const ownItem = hit(it.dept);
+    const mySubs = (it.subs || []).filter((sb) => hit(sb.dept));
     if (!ownItem && !mySubs.length) return; // 본인 부서와 관계없는 지표는 그대로
     const snap = () => JSON.stringify([it.current, it.status, it.note || "", it.owner || "", (it.subs || []).map((x) => [x.value, x.owner || "", x.note || ""])]);
     const before = snap();
@@ -272,7 +274,9 @@ function mergeForDept(current, submitted, dept, who) {
     // 값이 그대로여도 저장하면 '이번에 확인·입력함'으로 기록 (부서별 입력 현황용)
     it.inputAt = stamp;
     it.inputBy = who;
-    it.inputs = Object.assign({}, it.inputs || {}, { [dept]: { at: stamp, by: who } });
+    const rec = {};
+    myDepts.forEach((d) => { if (splitDepts(it.dept).includes(d) || (it.subs || []).some((sb) => splitDepts(sb.dept).includes(d))) rec[d] = { at: stamp, by: who }; });
+    it.inputs = Object.assign({}, it.inputs || {}, rec);
   }));
   return { next, changed };
 }
@@ -419,7 +423,15 @@ export async function handle(req, { store, ip, path: forcedPath, platform }) {
         const same = p && JSON.stringify([p.current, p.status, p.note, p.owner, p.subs]) === JSON.stringify([it.current, it.status, it.note, it.owner, it.subs]);
         if (p && p.inputs) it.inputs = p.inputs; else delete it.inputs;
         if (same) { if (p.inputAt) { it.inputAt = p.inputAt; it.inputBy = p.inputBy; } else { delete it.inputAt; delete it.inputBy; } }
-        else { it.inputAt = stamp; it.inputBy = adminName; }
+        else {
+          it.inputAt = stamp; it.inputBy = adminName;
+          // 관리자가 자기 담당 부서(예: 기획팀, IR센터) 지표를 고치면 그 부서 입력으로도 기록
+          splitDepts(me.dept).forEach((d) => {
+            if (splitDepts(it.dept).includes(d) || (it.subs || []).some((sb) => splitDepts(sb.dept).includes(d))) {
+              it.inputs = Object.assign({}, it.inputs || {}, { [d]: { at: stamp, by: `${me.name} (${d})` } });
+            }
+          });
+        }
       }));
       doc.meta.updatedAt = kstIso();
       doc.meta.updatedBy = adminName;
@@ -490,11 +502,12 @@ export async function handle(req, { store, ip, path: forcedPath, platform }) {
         const name = String(body.value.name || "").trim().slice(0, 20);
         const dept = String(body.value.dept || "").trim();
         if (!name) return json(400, { error: "이름을 입력해 주세요." });
-        if (!departmentsOf(await readCurrent(store)).includes(dept)) return json(400, { error: "부서를 목록에서 골라 주세요." });
+        const all = departmentsOf(await readCurrent(store)), parts = splitDepts(dept);
+        if (!parts.length || !parts.every((d) => all.includes(d))) return json(400, { error: "부서를 목록에서 골라 주세요 (여러 부서는 쉼표로 구분)." });
         const admin = body.value.admin === undefined ? !!users[i].admin : !!body.value.admin;
         if (lastAdmin && !admin) return json(400, { error: "마지막 관리자의 권한은 뺄 수 없습니다. 다른 가입자에게 관리자 권한을 먼저 주세요." });
         users[i].name = name;
-        users[i].dept = dept;
+        users[i].dept = parts.join(", ");
         users[i].admin = admin;
       } else {
         return json(400, { error: "알 수 없는 요청입니다." });

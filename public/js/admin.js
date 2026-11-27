@@ -7,14 +7,15 @@
   var DEPT_KEY = 'kmcuKpiDept';
   var orig = null; // 불러온 시점의 자료 (내 변경분 계산용)
   var me = null;   // 로그인한 사람 { id, name, dept, admin }
-  function mine(dept) { return me.admin || splitDepts(dept).indexOf(me.dept) >= 0; }
+  function myDepts() { return splitDepts(me.dept); }
+  function mine(dept) { var mds = myDepts(); return me.admin || splitDepts(dept).some(function (d) { return mds.indexOf(d) >= 0; }); }
   function itemDepts(it) { // 지표 관리부서 + 세부운영지수 부서
     var set = {};
     splitDepts(it.dept).forEach(function (d) { set[d] = true; });
     (it.subs || []).forEach(function (sb) { splitDepts(sb.dept).forEach(function (d) { set[d] = true; }); });
     return Object.keys(set);
   }
-  function minePart(it) { return me.admin || itemDepts(it).indexOf(me.dept) >= 0; }
+  function minePart(it) { var mds = myDepts(); return me.admin || itemDepts(it).some(function (d) { return mds.indexOf(d) >= 0; }); }
   /* 세부운영지수로 현재값 계산 (서버와 같은 규칙: 합계, 유지율은 B ÷ A × 100) */
   function subsValue(it) {
     var vals = (it.subs || []).map(function (sb) { return typeof sb.value === 'number' && isFinite(sb.value) ? sb.value : null; });
@@ -51,7 +52,8 @@
       if (tr.classList.contains('group-row')) { flush(); group = tr; groupVisible = false; return; }
       var isSub = tr.classList.contains('sub-row');
       if (!isSub) total++;
-      var ok = !dept || splitDepts(tr.getAttribute('data-dept')).indexOf(dept) >= 0;
+      var sel = splitDepts(dept);
+      var ok = !dept || splitDepts(tr.getAttribute('data-dept')).some(function (d) { return sel.indexOf(d) >= 0; });
       tr.hidden = !ok;
       if (ok) { if (!isSub) shown++; groupVisible = true; }
     });
@@ -461,15 +463,14 @@
           }).join('') + '</ul>'
         : '<p class="dim small">가입 대기 중인 관리자 지정이 없습니다.</p>';
       if (!list.length) { box.innerHTML = '<p class="dim">아직 가입한 담당자가 없습니다.</p>'; return; }
-      box.innerHTML = '<div class="table-scroll"><table class="le-table users-table"><thead><tr><th scope="col">인사번호</th><th scope="col">이름</th><th scope="col">부서</th><th scope="col">권한</th>' +
+      box.innerHTML = '<datalist id="deptList">' + userDepts.map(function (d) { return '<option value="' + esc(d) + '">'; }).join('') + '</datalist>' +
+        '<p class="small dim">부서 칸에 여러 부서를 쉼표로 적으면(예: 기획팀, IR센터) 그 부서들의 담당자가 됩니다. 관리자도 담당 부서를 적어 두면 그 부서 지표를 고칠 때 부서 입력 현황에 입력 완료로 기록됩니다.</p>' +
+        '<div class="table-scroll"><table class="le-table users-table"><thead><tr><th scope="col">인사번호</th><th scope="col">이름</th><th scope="col">부서</th><th scope="col">권한</th>' +
         '<th scope="col">가입</th><th scope="col">최근 로그인</th><th scope="col"></th></tr></thead><tbody>' +
         list.map(function (u, i) {
-          var opts = userDepts.slice();
-          if (opts.indexOf(u.dept) < 0) opts.unshift(u.dept);
           return '<tr><td>' + esc(u.id) + '</td>' +
             '<td><input class="cell-input mid" id="u-' + i + '-name" value="' + esc(u.name) + '" aria-label="' + esc(u.id) + ' 이름"></td>' +
-            '<td><select class="cell-select" id="u-' + i + '-dept" aria-label="' + esc(u.id) + ' 부서">' +
-            opts.map(function (d) { return '<option' + (d === u.dept ? ' selected' : '') + '>' + esc(d) + '</option>'; }).join('') + '</select></td>' +
+            '<td><input class="cell-input wide" id="u-' + i + '-dept" list="deptList" value="' + esc(u.dept) + '" aria-label="' + esc(u.id) + ' 부서" title="여러 부서는 쉼표로 구분 (예: 기획팀, IR센터)"></td>' +
             '<td><select class="cell-select" id="u-' + i + '-role" aria-label="' + esc(u.id) + ' 권한"><option value="user"' + (u.admin ? '' : ' selected') + '>담당자 (본인 부서)</option>' +
             '<option value="admin"' + (u.admin ? ' selected' : '') + '>관리자 (전체)</option></select></td>' +
             '<td class="small dim">' + esc(shortTime(u.createdAt)) + '</td><td class="small dim">' + (u.pinReset ? '<b class="pin-reset">PIN 초기화됨 (새 PIN 대기)</b>' : esc(u.lastLogin ? shortTime(u.lastLogin) : '—')) + '</td>' +
