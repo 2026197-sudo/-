@@ -8,6 +8,20 @@
   var orig = null; // 불러온 시점의 자료 (내 변경분 계산용)
   var me = null;   // 로그인한 사람 { id, name, dept, admin }
   function mine(dept) { return me.admin || splitDepts(dept).indexOf(me.dept) >= 0; }
+  function itemDepts(it) { // 지표 관리부서 + 세부운영지수 부서
+    var set = {};
+    splitDepts(it.dept).forEach(function (d) { set[d] = true; });
+    (it.subs || []).forEach(function (sb) { splitDepts(sb.dept).forEach(function (d) { set[d] = true; }); });
+    return Object.keys(set);
+  }
+  function minePart(it) { return me.admin || itemDepts(it).indexOf(me.dept) >= 0; }
+  /* 세부운영지수로 현재값 계산 (서버와 같은 규칙: 합계, 유지율은 B ÷ A × 100) */
+  function subsValue(it) {
+    var vals = (it.subs || []).map(function (sb) { return typeof sb.value === 'number' && isFinite(sb.value) ? sb.value : null; });
+    if (!vals.some(function (v) { return v !== null; })) return undefined;
+    if (it.calc === 'ratio') return vals[0] && vals[1] !== null ? Math.round(vals[1] / vals[0] * 1000) / 10 : null;
+    return Math.round(vals.reduce(function (a, v) { return a + (v || 0); }, 0) * 100) / 100;
+  }
 
   /* ---------- 관리부서 필터 ---------- */
   function splitDepts(s) { return String(s || '').split(/\s*[,·\/]\s*/).map(function (x) { return x.trim(); }).filter(Boolean); }
@@ -19,7 +33,7 @@
       applyDeptFilter();
       return;
     }
-    data.indices.forEach(function (ix) { ix.items.forEach(function (it) { splitDepts(it.dept).forEach(function (d) { set[d] = true; }); }); });
+    data.indices.forEach(function (ix) { ix.items.forEach(function (it) { itemDepts(it).forEach(function (d) { set[d] = true; }); }); });
     var saved = sel.value;
     if (!saved) { try { saved = localStorage.getItem(DEPT_KEY) || ''; } catch (e) {} }
     var names = Object.keys(set).sort(function (a, b) { return a.localeCompare(b, 'ko'); });
@@ -35,10 +49,11 @@
     var flush = function () { if (group) group.hidden = !groupVisible; };
     Array.prototype.forEach.call(rows, function (tr) {
       if (tr.classList.contains('group-row')) { flush(); group = tr; groupVisible = false; return; }
-      total++;
+      var isSub = tr.classList.contains('sub-row');
+      if (!isSub) total++;
       var ok = !dept || splitDepts(tr.getAttribute('data-dept')).indexOf(dept) >= 0;
       tr.hidden = !ok;
-      if (ok) { shown++; groupVisible = true; }
+      if (ok) { if (!isSub) shown++; groupVisible = true; }
     });
     flush();
     document.getElementById('deptHint').textContent = !me.admin
@@ -181,18 +196,38 @@
     ['title', 'badge', 'dataBasis', 'asOfDate'].forEach(function (k) { document.getElementById('m-' + k).disabled = !me.admin; });
 
     var html = '';
+    var dis = function (ok) { return ok ? '' : ' disabled'; };
     data.indices.forEach(function (ix, i) {
-      html += '<tr class="group-row"><td colspan="6">' + esc(ix.name) + '</td></tr>';
+      html += '<tr class="group-row"><td colspan="8">' + esc(ix.name) + '</td></tr>';
       ix.items.forEach(function (it, j) {
-        if (!mine(it.dept)) return; // 다른 부서 지표는 담당자 화면에 그리지 않음
-        var id = 'i' + i + '_' + j;
-        html += '<tr data-dept="' + esc(it.dept) + '"><th scope="row" style="background:none;font-weight:500;color:var(--ink);white-space:normal"><label for="' + id + '-cur">' + esc(it.name) + ' <span class="dim small">(' + esc(it.unit) + ')</span></label></th>' +
+        if (!minePart(it)) return; // 본인 부서와 관계없는 지표는 담당자 화면에 그리지 않음
+        var id = 'i' + i + '_' + j, own = mine(it.dept), hasSubs = (it.subs || []).length > 0;
+        var calcNote = hasSubs ? (it.calc === 'ratio' ? 'B ÷ A × 100 자동 계산' : '세부 합계 자동 계산') : '';
+        html += '<tr class="item-row" data-dept="' + esc(itemDepts(it).join(', ')) + '"><th scope="row" style="background:none;font-weight:600;color:var(--ink);white-space:normal"><label for="' + id + '-cur">' + esc(it.name) + ' <span class="dim small">(' + esc(it.unit) + ')</span></label></th>' +
           '<td class="r dim">' + K.fmt(it.targets.y2) + '</td>' +
-          '<td><input class="cell-input num" id="' + id + '-cur" type="number" step="any" value="' + (it.current === null || it.current === undefined ? '' : esc(it.current)) + '"></td>' +
-          '<td><select class="cell-select" id="' + id + '-st" aria-label="' + esc(it.name) + ' 상태">' +
-          STATES.map(function (s) { return '<option value="' + s[0] + '"' + (it.status === s[0] ? ' selected' : '') + '>' + s[1] + '</option>'; }).join('') + '</select></td>' +
-          '<td><input class="cell-input wide" id="' + id + '-note" type="text" aria-label="' + esc(it.name) + ' 비고" value="' + esc(it.note) + '"></td>' +
+          '<td><input class="cell-input num" id="' + id + '-cur" type="number" step="any" value="' + (it.current === null || it.current === undefined ? '' : esc(it.current)) + '"' +
+            (hasSubs ? ' readonly tabindex="-1" title="' + calcNote + '"' : dis(own)) + '>' + (hasSubs ? '<span class="calc-note">' + calcNote + '</span>' : '') + '</td>' +
+          '<td><select class="cell-select" id="' + id + '-st" aria-label="' + esc(it.name) + ' 상태"' + dis(own) + '>' +
+          STATES.map(function (st) { return '<option value="' + st[0] + '"' + (it.status === st[0] ? ' selected' : '') + '>' + st[1] + '</option>'; }).join('') + '</select></td>' +
+          '<td><input class="cell-input mid" id="' + id + '-owner" type="text" aria-label="' + esc(it.name) + ' 담당자" value="' + esc(it.owner || '') + '" maxlength="40"' + dis(own) + '></td>' +
+          '<td><textarea class="cell-input wide ev" id="' + id + '-ev" rows="1" aria-label="' + esc(it.name) + ' 문서번호(증빙)"' + dis(own) + '>' + esc(it.evidence || '') + '</textarea></td>' +
+          '<td><input class="cell-input wide" id="' + id + '-note" type="text" aria-label="' + esc(it.name) + ' 비고" value="' + esc(it.note) + '"' + dis(own) + '></td>' +
           '<td><input class="cell-input wide" id="' + id + '-dept" type="text" aria-label="' + esc(it.name) + ' 관리부서" value="' + esc(it.dept) + '"' + (me.admin ? '' : ' readonly') + '></td></tr>';
+        (it.subs || []).forEach(function (sb, k) {
+          var sid = id + '_s' + k, ownSub = mine(sb.dept);
+          html += '<tr class="sub-row" data-dept="' + esc(sb.dept) + '" data-item="' + id + '">' +
+            '<th scope="row" style="background:none;white-space:normal">' + (me.admin
+              ? '<input class="cell-input wide sub-name" id="' + sid + '-name" type="text" aria-label="세부운영지수 이름" value="' + esc(sb.name) + '">'
+              : '<label for="' + sid + '-val" class="sub-name">' + esc(sb.name) + '</label>') + '</th>' +
+            '<td></td>' +
+            '<td><input class="cell-input num sub-val" id="' + sid + '-val" type="number" step="any" value="' + (sb.value === null || sb.value === undefined ? '' : esc(sb.value)) + '"' + dis(ownSub) + '></td>' +
+            '<td class="small dim">' + (ownSub ? '' : '해당 부서 입력') + '</td>' +
+            '<td><input class="cell-input mid" id="' + sid + '-owner" type="text" aria-label="' + esc(sb.name) + ' 담당자" value="' + esc(sb.owner || '') + '" maxlength="40"' + dis(ownSub) + '></td>' +
+            '<td><textarea class="cell-input wide ev" id="' + sid + '-ev" rows="1" aria-label="' + esc(sb.name) + ' 문서번호(증빙)"' + dis(ownSub) + '>' + esc(sb.evidence || '') + '</textarea></td>' +
+            '<td><input class="cell-input wide" id="' + sid + '-note" type="text" aria-label="' + esc(sb.name) + ' 비고" value="' + esc(sb.note || '') + '"' + dis(ownSub) + '></td>' +
+            '<td><input class="cell-input wide" id="' + sid + '-dept" type="text" aria-label="' + esc(sb.name) + ' 부서" value="' + esc(sb.dept || '') + '"' + (me.admin ? '' : ' readonly') + '></td></tr>';
+        });
+        if (me.admin) html += '<tr class="sub-row sub-add" data-dept="' + esc(itemDepts(it).join(', ')) + '"><td colspan="8"><button type="button" class="btn btn-sm" data-addsub="' + i + '_' + j + '">+ 세부운영지수 추가</button></td></tr>';
       });
     });
     document.getElementById('rows').innerHTML = html;
@@ -218,9 +253,29 @@
         if (raw !== '' && !isFinite(v)) bad.push(it.name);
         it.current = v;
         it.status = document.getElementById(id + '-st').value;
-        if (it.status === 'actual' && v === null) bad.push(it.name + '(실적인데 값이 비어 있음)');
+        if (it.status === 'actual' && v === null && !(it.subs || []).length) bad.push(it.name + '(실적인데 값이 비어 있음)');
         it.note = document.getElementById(id + '-note').value.trim();
         it.dept = document.getElementById(id + '-dept').value.trim();
+        it.owner = document.getElementById(id + '-owner').value.trim();
+        it.evidence = document.getElementById(id + '-ev').value.trim();
+        if (it.subs) {
+          it.subs = it.subs.map(function (sb, k) {
+            var sid = id + '_s' + k, el = document.getElementById(sid + '-val');
+            if (!el) return sb;
+            var r2 = el.value.trim(), sv = r2 === '' ? null : Number(r2);
+            if (r2 !== '' && !isFinite(sv)) bad.push(sb.name);
+            var nameEl = document.getElementById(sid + '-name');
+            return Object.assign({}, sb, {
+              name: nameEl ? nameEl.value.trim() : sb.name, value: sv,
+              owner: document.getElementById(sid + '-owner').value.trim(),
+              evidence: document.getElementById(sid + '-ev').value.trim(),
+              note: document.getElementById(sid + '-note').value.trim(),
+              dept: document.getElementById(sid + '-dept').value.trim()
+            });
+          }).filter(function (sb) { return sb.name; }); // 이름을 지우면 세부운영지수 삭제
+          var cv = subsValue(it);
+          if (cv !== undefined) { it.current = cv; if (it.status === 'missing' && cv !== null) it.status = 'actual'; }
+        }
       });
     });
     syncLists();
@@ -241,7 +296,7 @@
 
   /* 동시 저장 대비: 불러온 뒤 내가 바꾼 부분만 골라 최신 자료에 합칩니다 */
   var META_KEYS = ['title', 'badge', 'dataBasis', 'asOfDate'];
-  var ITEM_KEYS = ['current', 'status', 'note', 'dept'];
+  var ITEM_KEYS = ['current', 'status', 'note', 'dept', 'owner', 'evidence', 'subs'];
   var LIST_PATHS = [['notes'], ['events'], ['fixes', 'data'], ['fixes', 'doc']];
   function getPath(o, p) { return p.reduce(function (a, k) { return a ? a[k] : undefined; }, o); }
   function setPath(o, p, v) { var t = o; for (var i = 0; i < p.length - 1; i++) { t[p[i]] = t[p[i]] || {}; t = t[p[i]]; } t[p[p.length - 1]] = v; }
@@ -442,6 +497,31 @@
     }).catch(function () { msg('저장소에 연결할 수 없습니다.'); b.disabled = false; });
   });
   document.getElementById('usersReload').addEventListener('click', loadUsers);
+
+  /* 세부값을 입력하면 지표 현재값을 바로 다시 계산해 보여 줌 */
+  document.getElementById('rows').addEventListener('input', function (e) {
+    var tr = e.target.closest('tr.sub-row');
+    if (!tr || !e.target.classList.contains('sub-val')) return;
+    var id = tr.getAttribute('data-item'), p = id.slice(1).split('_'), it = data.indices[+p[0]].items[+p[1]];
+    var tmp = { calc: it.calc, subs: (it.subs || []).map(function (sb, k) {
+      var el = document.getElementById(id + '_s' + k + '-val'), r = el ? el.value.trim() : '';
+      return { value: r === '' ? null : Number(r) };
+    }) };
+    var v = subsValue(tmp);
+    if (v !== undefined) document.getElementById(id + '-cur').value = v === null ? '' : v;
+  });
+  /* 관리자: 세부운영지수 추가 */
+  document.getElementById('rows').addEventListener('click', function (e) {
+    var b = e.target.closest('[data-addsub]');
+    if (!b) return;
+    var p = b.getAttribute('data-addsub').split('_'), it = data.indices[+p[0]].items[+p[1]];
+    var c = collect().next; // 지금까지 입력한 값 유지
+    data = c;
+    var target = data.indices[+p[0]].items[+p[1]];
+    target.subs = target.subs || [];
+    target.subs.push({ id: target.id + 'x' + Date.now().toString(36), name: '새 세부운영지수', value: null, dept: splitDepts(it.dept)[0] || '', owner: '', evidence: '', note: '' });
+    fill();
+  });
 
   K.initTheme();
   document.getElementById('themeToggle').addEventListener('click', K.toggleTheme);
